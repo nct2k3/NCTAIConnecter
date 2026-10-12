@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <!-- NCT AI Connect: biểu tượng tự thiết kế (hai robot đập tay trên dải vô cực) -->
+  <defs>
+    <linearGradient id="gb" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3aa0ff"/><stop offset="1" stop-color="#0b4fd6"/></linearGradient>
+    <linearGradient id="gr" x1="1" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff6a5c"/><stop offset="1" stop-color="#d0121a"/></linearGradient>
+  </defs>
+  <!-- dải vô cực -->
+  <path d="M60 86 C44 64 12 60 7 82 C3 103 38 110 60 86" fill="none" stroke="url(#gb)" stroke-width="9" stroke-linecap="round"/>
+  <path d="M60 86 C76 108 113 103 113 82 C113 61 76 64 60 86" fill="none" stroke="url(#gr)" stroke-width="9" stroke-linecap="round"/>
+  <!-- bong bóng chat -->
+  <g>
+    <rect x="12" y="8" width="30" height="18" rx="9" fill="#1f7bff"/>
+    <path d="M22 25 L20 32 L29 25 Z" fill="#1f7bff"/>
+    <circle cx="20" cy="17" r="2.2" fill="#fff"/><circle cx="27" cy="17" r="2.2" fill="#fff"/><circle cx="34" cy="17" r="2.2" fill="#fff"/>
+  </g>
+  <g>
+    <rect x="78" y="6" width="30" height="18" rx="9" fill="#ef2b2b"/>
+    <path d="M98 23 L100 30 L91 23 Z" fill="#ef2b2b"/>
+    <circle cx="86" cy="15" r="2.2" fill="#fff"/><circle cx="93" cy="15" r="2.2" fill="#fff"/><circle cx="100" cy="15" r="2.2" fill="#fff"/>
+  </g>
+  <!-- tia đập tay -->
+  <path d="M60 32 V26 M52 35 L48 31 M68 35 L72 31" stroke="#ffb020" stroke-width="2.4" stroke-linecap="round"/>
+  <!-- robot xanh -->
+  <g transform="translate(30 60)">
+    <path d="M11 14 Q25 4 28 -15" fill="none" stroke="#1565e8" stroke-width="5.5" stroke-linecap="round"/>
+    <circle cx="28.5" cy="-17" r="4.6" fill="#fff" stroke="#1565e8" stroke-width="1.8"/>
+    <rect x="-11" y="12" width="22" height="16" rx="6" fill="#eaf2ff" stroke="#1565e8" stroke-width="2"/>
+    <line x1="0" y1="-15" x2="0" y2="-23" stroke="#1565e8" stroke-width="2.6"/>
+    <circle cx="0" cy="-25" r="3.6" fill="#3aa0ff"/>
+    <circle cx="-18" cy="-1" r="4.6" fill="#eaf2ff" stroke="#1565e8" stroke-width="2"/>
+    <circle cx="18" cy="-1" r="4.6" fill="#eaf2ff" stroke="#1565e8" stroke-width="2"/>
+    <rect x="-17" y="-16" width="34" height="29" rx="11" fill="url(#gb)"/>
+    <rect x="-12.5" y="-10" width="25" height="16" rx="7.5" fill="#0d1a33"/>
+    <path d="M-8.5 -1 q3 -4.2 6 0 M2.5 -1 q3 -4.2 6 0" fill="none" stroke="#5fe6ff" stroke-width="2.3" stroke-linecap="round"/>
+  </g>
+  <!-- robot đỏ -->
+  <g transform="translate(90 60)">
+    <path d="M-11 14 Q-25 4 -28 -15" fill="none" stroke="#d41f24" stroke-width="5.5" stroke-linecap="round"/>
+    <circle cx="-28.5" cy="-17" r="4.6" fill="#fff" stroke="#d41f24" stroke-width="1.8"/>
+    <rect x="-11" y="12" width="22" height="16" rx="6" fill="#fff0ef" stroke="#d41f24" stroke-width="2"/>
+    <line x1="0" y1="-15" x2="0" y2="-23" stroke="#d41f24" stroke-width="2.6"/>
+    <circle cx="0" cy="-25" r="3.6" fill="#ff6a5c"/>
+    <circle cx="-18" cy="-1" r="4.6" fill="#fff0ef" stroke="#d41f24" stroke-width="2"/>
+    <circle cx="18" cy="-1" r="4.6" fill="#fff0ef" stroke="#d41f24" stroke-width="2"/>
+    <rect x="-17" y="-16" width="34" height="29" rx="11" fill="url(#gr)"/>
+    <rect x="-12.5" y="-10" width="25" height="16" rx="7.5" fill="#2a0d10"/>
+    <path d="M-8.5 -1 q3 -4.2 6 0 M2.5 -1 q3 -4.2 6 0" fill="none" stroke="#ffb3a8" stroke-width="2.3" stroke-linecap="round"/>
+  </g>
+</svg>

@@ -1,0 +1,16 @@
+# Bản build (tạo lại bằng build_exe.bat)
+dist/
+build/
+*.spec
+
+# Python
+__pycache__/
+*.pyc
+
+# IDE
+.idea/
+.vscode/
+
+# Ảnh logo nháp ở thư mục gốc (nguồn logo nằm trong assets/)
+/*.jpg
+/*.png
