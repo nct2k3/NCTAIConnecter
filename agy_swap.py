@@ -20,6 +20,8 @@ Chỉ dùng thư viện chuẩn của Python 3.8+.
 """
 import base64
 import ctypes
+import hashlib
+import hmac
 import json
 import os
 import re
@@ -30,6 +32,7 @@ import threading
 import time
 import uuid
 import webbrowser
+import zlib
 from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -64,8 +67,10 @@ PERMS = ("read", "edit", "full")
 # Mức suy nghĩ (effort): agy và claude nhận --effort; codex nhận model_reasoning_effort (tối đa "high")
 EFFORTS = ("low", "medium", "high", "xhigh", "max")
 AGY_ARG_LIMIT = 24000  # prompt dài hơn mức này thì gửi agy qua file (dòng lệnh Windows tối đa ~32.767 ký tự)
-# agy: nhiều model đã gồm mức effort trong tên; gửi thêm --effort thì agy báo "conflicts with --effort"
-AGY_EFFORT_IN_MODEL_RE = re.compile(r"-(minimal|low|medium|high|xhigh|max|thinking)$")
+# agy: nhiều model đã gồm mức effort trong tên, model Claude / GPT-OSS thì cố định effort; gửi thêm --effort thì agy báo
+# "conflicts with --effort" / "--effort is not supported for model"
+AGY_EFFORT_IN_MODEL_RE = re.compile(r"-(minimal|low|medium|high|xhigh|max|thinking)$|^(claude|gpt-oss)-")
+AGY_EFFORT_ERR_RE = re.compile(r"conflicts with --effort|--effort is not supported")
 LANG_NOTE_EN = ("\n\n(Please write your reply in English. Keep any required markers exactly as specified above, "
                 "e.g. the ```tasks block format, \"CẦN XÁC NHẬN:\", \"XONG\" and \"KẾT LUẬN: ĐẠT / CHƯA ĐẠT\".)")
 # Cách làm của cây task: Bố lập kế hoạch rồi chờ xác nhận / Con tự làm luôn / Bố tự làm / Con tự lập kế hoạch và làm
@@ -75,6 +80,13 @@ PLANS_DIR = "plans"  # thư mục con trong thư mục làm việc chứa file k
 CHAT_TIMEOUT = 900  # (cũ) giữ cho tương thích
 CHAT_IDLE_TIMEOUT = int(os.environ.get("AGY_SWAP_IDLE_TIMEOUT", 20 * 60))  # im lặng (không có sự kiện nào) quá lâu thì dừng
 CHAT_MAX_TIME = int(os.environ.get("AGY_SWAP_MAX_TIME", 2 * 3600))  # một lượt tối đa
+# Máy ngủ rồi thức dậy: kết nối mạng của trợ lý thường đã chết nên nó treo. Không thấy sự kiện nào trong chừng này giây
+# sau khi thức dậy thì dừng và chạy tiếp phiên đó.
+WAKE_STALL = int(os.environ.get("AGY_SWAP_WAKE_STALL", 4 * 60))
+WAKE_RETRIES = 2
+WAKE_CONTINUE = ("Lượt làm việc trước bị gián đoạn vì máy tính ngủ (mất kết nối). Hãy tiếp tục đúng công việc đang làm dở "
+                 "theo yêu cầu trước đó: kiểm tra những gì đã làm xong, làm nốt phần còn lại, rồi trả lời đúng định dạng "
+                 "đã được yêu cầu (kể cả các dòng kết thúc như XONG / CẦN XÁC NHẬN / KẾT LUẬN nếu có).")
 # lỗi mạng / máy chủ tạm thời: tự thử lại một lần
 TRANSIENT_RE = re.compile(r"connection attempt failed|wsarecv|connection (reset|refused|closed)|ECONNRESET|ETIMEDOUT|"
                           r"timed? ?out|temporarily unavailable|\b50[234]\b|overloaded|Eligibility check failed|"
@@ -435,8 +447,9 @@ def find_tool(tool):
 TOOL_HOME_ENV = {"claude": "CLAUDE_CONFIG_DIR", "codex": "CODEX_HOME"}
 TOOL_ACCOUNTS_DIR = {"claude": PROFILES_DIR / ".claude-accounts", "codex": PROFILES_DIR / ".codex-accounts"}
 AUTH_TTL = 60
-AUTH_CMD = {"claude": ["auth", "status"], "codex": ["login", "status"]}
-LOGIN_CMD = {"claude": ["auth", "login"], "codex": ["login"]}
+AUTH_CMD = {"codex": ["login", "status"]}
+# Claude Code: chạy "claude" với thư mục cấu hình mới là tự hiện bước đăng nhập (bản cũ không có lệnh "claude auth login")
+LOGIN_CMD = {"claude": [], "codex": ["login"]}
 auth_cache = {"at": 0.0, "checking": False, "data": {}}
 
 
@@ -467,6 +480,14 @@ def check_auth(tool, name=None):
     exe = shutil.which(tool)
     if not exe:
         return {"logged_in": False, "who": None}
+    if tool == "claude":  # đọc file đăng nhập: không gọi Claude nên không tốn hạn mức
+        target = f"claude:{name}" if name else "claude"
+        o = (_read_json(_claude_home(target) / ".credentials.json") or {}).get("claudeAiOauth") or {}
+        exp = o.get("refreshTokenExpiresAt")
+        if not (o.get("refreshToken") or o.get("accessToken")) or (isinstance(exp, (int, float)) and exp / 1000 < time.time()):
+            return {"logged_in": bool(os.environ.get("ANTHROPIC_API_KEY")) and not name, "who": None}
+        info = (_read_json(_claude_json_path(target)) or {}).get("oauthAccount") or {}
+        return {"logged_in": True, "who": info.get("emailAddress")}
     kw = dict(capture_output=True, text=True, encoding="utf-8", errors="replace", stdin=subprocess.DEVNULL,
               timeout=30, env={**os.environ, **tool_env_vars(tool, name)})
     if IS_WIN:
@@ -475,12 +496,6 @@ def check_auth(tool, name=None):
         r = subprocess.run([exe, *AUTH_CMD[tool]], **kw)
     except Exception:
         return {"logged_in": None, "who": None}
-    if tool == "claude":
-        try:
-            d = json.loads(r.stdout)
-            return {"logged_in": bool(d.get("loggedIn")), "who": d.get("email")}
-        except ValueError:
-            pass
     lines = [l for l in ((r.stdout or "") + (r.stderr or "")).splitlines() if l.strip() and "WARNING" not in l]
     return {"logged_in": r.returncode == 0, "who": lines[0].strip()[:80] if r.returncode == 0 and lines else None}
 
@@ -1165,9 +1180,13 @@ def review_prompt(tree, kind, ran, final_file):
     else:
         done = [t for t in tree["tasks"] if t["id"] in ran]
         lines = [f"#{t['id']} {t['title']} [{t['status']}]\nYêu cầu: {t.get('detail') or '(không có)'}\n"
-                 f"Con báo: {t.get('result') or '(không có)'}" for t in done]
-        parts.append("Việc cần kiểm tra: các task Con vừa làm (đối chiếu yêu cầu với thay đổi thực tế trong code: đúng yêu cầu chưa, "
-                     "thiếu gì, có lỗi hay làm hỏng phần khác không, đã build / test chưa):\n\n" + "\n\n".join(lines))
+                 + (f"Kết quả dự kiến: {t['expected']}\n" if t.get("expected") else "")
+                 + f"Con báo: {t.get('result') or '(không có)'}" for t in done]
+        parts.append("Việc cần kiểm tra: các task Con vừa làm (đối chiếu yêu cầu và KẾT QUẢ DỰ KIẾN với thay đổi thực tế trong "
+                     "code: đạt kết quả dự kiến chưa, thiếu gì, có lỗi hay làm hỏng phần khác không, đã build / test chưa):\n\n"
+                     + "\n\n".join(lines))
+        if tree.get("expected"):
+            parts.append("Kết quả dự kiến của cả kế hoạch: " + tree["expected"])
         parts.append("Toàn bộ kế hoạch (để nắm ngữ cảnh):\n" + plan_text(tree["tasks"]))
     return "\n\n".join(parts)
 TASK_STATUS = ("todo", "doing", "done", "blocked", "skipped")
@@ -1181,16 +1200,27 @@ Bạn KHÔNG tự sửa file hay chạy lệnh làm thay đổi gì. Đọc code
 "Con" (một model nhỏ hơn) sẽ làm theo kế hoạch của bạn, lần lượt từng task, và chỉ thấy nội dung task được giao,
 không thấy cuộc trao đổi này. Vì vậy mỗi task phải:
 - nhỏ, làm xong trong một lượt;
-- đủ chi tiết để làm mà không phải đoán: file/hàm nào, thay đổi cụ thể gì, giữ nguyên gì, làm sao biết là xong;
-- nếu có quyết định Con không nên tự đưa ra (xóa dữ liệu, chọn giữa nhiều hướng, thiếu thông tin) thì ghi rõ
-  trong detail: "Hỏi người dùng trước khi ...".
+- đủ chi tiết để làm mà không phải đoán: file/hàm nào, thay đổi cụ thể gì, giữ nguyên gì, làm sao biết là xong.
+HỎI HẾT TỪ ĐẦU: Con phải làm MỘT MẠCH từ task đầu tới task cuối, không dừng giữa chừng để hỏi người dùng. Vì vậy mọi
+điều chưa rõ (thiếu thông tin, chọn giữa nhiều hướng, xóa / ghi đè dữ liệu, tên / giá trị / giao diện cụ thể, phạm vi)
+bạn phải tìm ra NGAY BÂY GIỜ, gom thành danh sách "questions" (ngắn, rõ, đánh số được, có gợi ý / mặc định nếu có)
+để người dùng trả lời một lần trước khi duyệt. KHÔNG được viết task kiểu "hỏi người dùng trước khi ...": khi người dùng
+đã trả lời thì ghi thẳng quyết định vào detail của task. Việc nhỏ có cách làm hợp lý rõ ràng thì tự quyết và ghi rõ
+giả định, đừng hỏi. Còn câu hỏi thì kế hoạch chưa duyệt được; hết câu hỏi thì để "questions": [].
 Trả lời ngắn gọn phần phân tích, rồi kết thúc bằng ĐÚNG MỘT khối chứa danh sách task ĐẦY ĐỦ (kể cả task đã xong), dạng JSON:
 ```tasks
-{"parallel": 2, "tasks": [
- {"id": 1, "title": "tiêu đề ngắn", "detail": "hướng dẫn chi tiết cho Con", "status": "todo", "deps": []},
- {"id": 2, "title": "...", "detail": "...", "status": "todo", "deps": [1]}]}
+{"parallel": 2, "expected": "kết quả dự kiến của CẢ kế hoạch", "questions": ["câu hỏi cần người dùng trả lời trước khi làm"], "tasks": [
+ {"id": 1, "title": "tiêu đề ngắn", "detail": "hướng dẫn chi tiết cho Con", "expected": "kết quả dự kiến khi xong task",
+  "status": "todo", "deps": []},
+ {"id": 2, "title": "...", "detail": "...", "expected": "...", "status": "todo", "deps": [1]}]}
 ```
+expected (BẮT BUỘC, không làm mù quáng): nói trước sẽ đạt được gì, cụ thể và kiểm tra được.
+- "expected" của cả kế hoạch: xong hết thì người dùng có / thấy / làm được gì (tính năng chạy ra sao, file nào có gì).
+- "expected" của từng task: xong task thì kiểm tra thấy gì: file / hàm nào tồn tại với nội dung gì, chạy lệnh gì ra
+  kết quả gì (build / test pass, output mong đợi), giao diện hiện gì. Con sẽ đối chiếu kết quả thật với mục này.
 status: "todo" (Con cần làm), "done" (đã xong, giữ nguyên), "skipped" (bỏ). Giữ nguyên id của các task cũ.
+Thứ tự task trong danh sách là độ ưu tiên (người dùng có thể đã sắp lại): giữ nguyên thứ tự các task cũ. Task ghi
+"(người dùng để cuối)" / "(người dùng tạm hoãn)" là người dùng tự hoãn: giữ nguyên, không cần ghi gì thêm.
 deps: id các task phải XONG trước task này. Nhiều Con có thể làm song song các task độc lập, nên task nào sửa chung
 file, cần kết quả của task khác, hoặc chạy build / test / git commit chung thì PHẢI liệt kê deps; task thật sự độc lập
 thì để deps rỗng. Luôn ghi trường deps cho mọi task.
@@ -1198,14 +1228,18 @@ parallel: số Con TỐI ĐA nên làm cùng lúc (1–4), do bạn quyết đ�
 khi nhiều Con cùng sửa một thư mục. Các task phụ thuộc nhau liên tục thì để 1; nhiều nhánh độc lập thì tăng lên.
 Nếu người dùng chỉ hỏi và kế hoạch không cần đổi, vẫn trả lại khối tasks như cũ.
 Người dùng sẽ đọc và DUYỆT kế hoạch trước khi Con bắt đầu, nên phần phân tích cần trình bày đầy đủ: bạn hiểu yêu cầu
-thế nào, hướng làm, các giả định, và câu hỏi người dùng cần chốt (nếu có) để kế hoạch đúng ý ngay từ đầu."""
+thế nào, hướng làm, các giả định. Các câu hỏi cần chốt đưa vào "questions" (không chỉ viết trong phần phân tích)."""
 
 CHILD_RULES = """Bạn là "Con" trong cây task Bố–Con: người thực hiện. "Bố" đã lập kế hoạch bên dưới.
 Chỉ làm ĐÚNG task được giao, không làm task khác, không tự đổi kế hoạch.
-- Nếu task bảo hỏi người dùng, thông tin chưa rõ, hoặc thấy kế hoạch sai / không làm được: DỪNG, đừng đoán.
-  Kết thúc câu trả lời bằng một dòng: CẦN XÁC NHẬN: <câu hỏi ngắn, rõ cho người dùng>
-- Nếu làm xong: kiểm tra lại kết quả thật (file có trên đĩa, nội dung đúng), báo cho người dùng đã làm gì,
-  file nào (đường dẫn đầy đủ), kết quả kiểm tra, rồi kết thúc bằng dòng: XONG
+- Người dùng đã trả lời mọi câu hỏi lúc lập kế hoạch: làm MỘT MẠCH, không hỏi lại. Chi tiết nhỏ chưa ghi trong task thì
+  tự chọn cách hợp lý nhất theo kế hoạch và kết quả dự kiến, rồi ghi rõ giả định trong báo cáo.
+- Chỉ DỪNG khi thật sự không thể làm tiếp: kế hoạch sai / mâu thuẫn với code thật, phải xóa / ghi đè dữ liệu quan trọng
+  ngoài phạm vi task, hoặc thiếu thông tin mà không có cách hợp lý nào để đoán. Khi đó kết thúc bằng một dòng:
+  CẦN XÁC NHẬN: <câu hỏi ngắn, rõ cho người dùng>
+- Nếu làm xong: kiểm tra lại kết quả thật (file có trên đĩa, nội dung đúng) và ĐỐI CHIẾU với "Kết quả dự kiến" của task
+  (nếu có): đạt hay chưa, khác ở đâu. Báo cho người dùng đã làm gì, file nào (đường dẫn đầy đủ), kết quả kiểm tra,
+  rồi kết thúc bằng dòng: XONG. Chưa đạt kết quả dự kiến mà không tự sửa được thì dùng CẦN XÁC NHẬN thay vì XONG.
 - Không bao giờ kết thúc mà không có câu trả lời."""
 
 # Con trả lời rỗng (agy đôi khi kết thúc lượt mà không có tin nhắn): hỏi lại một lần trong cùng phiên.
@@ -1221,9 +1255,13 @@ def plan_text(tasks, details=False, current=None, results=True):
         recent = {t["id"] for t in [t for t in tasks if t["status"] == "done" and t.get("result")][-int(results):]}
     lines = []
     for t in tasks:
-        lines.append(f"{TASK_MARK[t['status']]} {t['id']}. {t['title']}" + ("   <- task được giao" if t is current else ""))
+        hold = {"last": "   (người dùng để cuối)", "manual": "   (người dùng tạm hoãn)"}.get(t.get("hold"), "")
+        lines.append(f"{TASK_MARK[t['status']]} {t['id']}. {t['title']}" + (hold if t["status"] == "todo" else "")
+                     + ("   <- task được giao" if t is current else ""))
         if details and t.get("detail"):
             lines += ["    " + l for l in t["detail"].splitlines()]
+        if details and t.get("expected"):
+            lines.append("    Kết quả dự kiến: " + t["expected"].replace("\n", "\n    "))
         if details and t.get("deps"):
             lines.append("    deps: " + ", ".join(f"#{d}" for d in t["deps"]))
         if t.get("result") and t["status"] == "done" and (results is True or t["id"] in recent):
@@ -1240,8 +1278,11 @@ Việc của bạn: phân tích yêu cầu, trả lời câu hỏi của ngườ
 và chỉ ra những điểm người dùng cần chốt. Khi người dùng trả lời, cập nhật kế hoạch theo.
 Trả lời ngắn gọn, rõ ràng, rồi kết thúc bằng ĐÚNG MỘT khối chứa các bước của kế hoạch (để theo dõi), dạng JSON:
 ```tasks
-[{"id": 1, "title": "tiêu đề ngắn", "detail": "mô tả bước này: làm gì, ở đâu, tiêu chí hoàn thành", "status": "todo"}]
+{"expected": "kết quả dự kiến của cả kế hoạch", "tasks": [
+ {"id": 1, "title": "tiêu đề ngắn", "detail": "mô tả bước này: làm gì, ở đâu", "expected": "kết quả dự kiến của bước này",
+  "status": "todo"}]}
 ```
+expected (BẮT BUỘC): nói trước sẽ đạt được gì, cụ thể và kiểm tra được, cho cả kế hoạch và từng bước.
 status: "todo" (bước trong kế hoạch), "skipped" (đã bỏ). Giữ nguyên id của các bước cũ.
 Nếu người dùng chỉ hỏi và kế hoạch không cần đổi, vẫn trả lại khối tasks như cũ."""
 
@@ -1249,9 +1290,10 @@ FINAL_RULES = """Người dùng đã CHỐT kế hoạch. Hãy viết BẢN KẾ
 trợ lý AI khác) đọc và thực hiện mà không cần xem cuộc trao đổi. Gồm các mục:
 # <Tiêu đề kế hoạch>
 ## Mục tiêu
+## Kết quả dự kiến (làm xong thì đạt được gì, kiểm tra bằng cách nào)
 ## Bối cảnh và hiện trạng (dựa trên code / tài liệu đã đọc)
 ## Các quyết định đã chốt (ghi rõ câu trả lời của người dùng)
-## Kế hoạch chi tiết (các bước đánh số; mỗi bước: việc cần làm, file / thành phần liên quan, tiêu chí hoàn thành)
+## Kế hoạch chi tiết (các bước đánh số; mỗi bước: việc cần làm, file / thành phần liên quan, kết quả dự kiến)
 ## Rủi ro và lưu ý
 ## Câu hỏi còn mở (nếu có)
 Chỉ trả về NỘI DUNG Markdown của tài liệu: không lời dẫn, không khối ```tasks, không bọc cả tài liệu trong ```."""
@@ -1259,6 +1301,8 @@ Chỉ trả về NỘI DUNG Markdown của tài liệu: không lời dẫn, khô
 
 def final_prompt(tree):
     parts = [FINAL_RULES]
+    if tree.get("expected"):
+        parts.append("Kết quả dự kiến của kế hoạch: " + tree["expected"])
     if tree["tasks"]:
         parts.append("Các bước của kế hoạch hiện tại:\n" + plan_text(tree["tasks"], details=True))
     return "\n\n".join(parts)
@@ -1296,6 +1340,12 @@ def save_plan_file(c, text, workdir):
 
 def parent_prompt(tree, text):
     parts = [PLAN_RULES if tree.get("flow") in PLAN_FLOWS else PARENT_RULES]
+    if tree.get("expected"):
+        parts.append("Kết quả dự kiến của kế hoạch hiện tại: " + tree["expected"])
+    if tree.get("questions"):
+        parts.append("Bạn đã hỏi người dùng các câu sau (tin nhắn bên dưới thường là câu trả lời). Đưa các quyết định vào "
+                     "detail của task liên quan; câu nào đã có trả lời thì bỏ khỏi \"questions\", chỉ giữ / thêm câu còn thật "
+                     "sự chưa rõ:\n" + "\n".join(f"{i}. {q}" for i, q in enumerate(tree["questions"], 1)))
     if tree["tasks"]:
         parts.append("Kế hoạch hiện tại và tiến độ của Con:\n" + plan_text(tree["tasks"], details=True))
     for t in tree["tasks"]:
@@ -1316,10 +1366,12 @@ def child_prompt(tree, task):
     if worker_count(tree) > 1:
         return (f"{CHILD_RULES}\n{PARALLEL_NOTE}\n\nToàn bộ kế hoạch (để nắm ngữ cảnh; code đã làm có sẵn trong thư mục làm việc):\n"
                 f"{plan_text(tree['tasks'], current=task, results=3)}\n\n"
-                f"== Task #{task['id']}: {task['title']} ==\n{task.get('detail') or '(không có mô tả thêm)'}")
+                f"== Task #{task['id']}: {task['title']} ==\n{task.get('detail') or '(không có mô tả thêm)'}"
+            + (f"\n\nKết quả dự kiến: {task['expected']}" if task.get("expected") else ""))
     return (f"{CHILD_RULES}\n\nToàn bộ kế hoạch (để nắm ngữ cảnh; code đã làm có sẵn trong thư mục làm việc):\n"
             f"{plan_text(tree['tasks'], current=task, results=3)}\n\n"
-            f"== Task #{task['id']}: {task['title']} ==\n{task.get('detail') or '(không có mô tả thêm)'}")
+            f"== Task #{task['id']}: {task['title']} ==\n{task.get('detail') or '(không có mô tả thêm)'}"
+            + (f"\n\nKết quả dự kiến: {task['expected']}" if task.get("expected") else ""))
 
 
 TASKS_START_RE = re.compile(r"```tasks[ \t]*\r?\n")
@@ -1344,6 +1396,22 @@ def tasks_json(text):
         except ValueError:
             pass
     return None
+
+
+def plan_expected(text):
+    """Kết quả dự kiến của cả kế hoạch Bố ghi trong khối tasks ({"expected": "...", "tasks": [...]}), hoặc None."""
+    data = tasks_json(text)
+    v = data.get("expected") if isinstance(data, dict) else None
+    return str(v).strip()[:3000] if isinstance(v, str) and v.strip() else None
+
+
+def plan_questions(text):
+    """Các câu hỏi Bố cần người dùng trả lời trước khi duyệt ({"questions": [...]}); None nếu Bố không ghi trường này."""
+    data = tasks_json(text)
+    v = data.get("questions") if isinstance(data, dict) else None
+    if not isinstance(v, list):
+        return None
+    return [str(q).strip()[:600] for q in v if isinstance(q, (str, int, float)) and str(q).strip()][:30]
 
 
 def plan_parallel(text):
@@ -1385,7 +1453,10 @@ def merge_tasks(text, old):
         status = x.get("status") if x.get("status") in ("done", "skipped") else "todo"
         prev = olds.get(tid) or {}
         item = {"id": tid, "title": str(x["title"]).strip()[:200], "detail": str(x.get("detail") or "").strip()[:4000],
+                "expected": str(x.get("expected") or "").strip()[:2000],
                 "status": status, "result": prev.get("result", "") if status == "done" else "", "question": ""}
+        if status == "todo" and prev.get("hold") in TASK_HOLDS:
+            item["hold"] = prev["hold"]
         if isinstance(x.get("deps"), list):
             item["deps"] = [d for d in x["deps"] if isinstance(d, int) and not isinstance(d, bool) and d != tid][:30]
         out.append(item)
@@ -1407,24 +1478,67 @@ def tree_report(tree, ran, folder):
         else:
             lines.append("    Chưa xong (lỗi hoặc đã dừng), xem tin nhắn của Con ở trên.")
     left = [t for t in tree["tasks"] if t["status"] in ("todo", "blocked")]
-    lines += ["", "Còn task chưa làm: " + ", ".join(f"#{t['id']}" for t in left) if left else "Đã xong toàn bộ kế hoạch."]
+    tag = {"last": " (để cuối)", "manual": " (tạm hoãn)"}
+    lines += ["", "Còn task chưa làm: " + ", ".join(f"#{t['id']}" + tag.get(t.get("hold"), "") for t in left)
+              if left else "Đã xong toàn bộ kế hoạch."]
     return "\n".join(lines)
 
 
-def next_task(tree):
-    return next((t for t in tree["tasks"] if t["status"] == "todo"), None)
+# Người dùng hoãn task: "last" = để cuối (chỉ chạy khi các task khác đã xong, vd task test),
+# "manual" = tạm hoãn (không chạy tới khi người dùng bỏ hoãn). Thứ tự trong tree["tasks"] là độ ưu tiên.
+TASK_HOLDS = ("last", "manual")
+
+
+def _inherit(tasks, own):
+    """id các task chưa xong có own(t) đúng, hoặc chờ (trực tiếp / gián tiếp qua deps) một task như vậy."""
+    ids, memo = {t["id"]: t for t in tasks}, {}
+
+    def go(t, seen):
+        if t["id"] not in memo:
+            memo[t["id"]] = t["status"] in ("todo", "doing", "blocked") and (own(t) or any(
+                go(ids[d], seen | {t["id"]}) for d in t.get("deps") or [] if d in ids and d not in seen))
+        return memo[t["id"]]
+    return {t["id"] for t in tasks if go(t, frozenset())}
 
 
 def ready_tasks(tree, busy=()):
-    """Các task làm được ngay: todo, không đang chạy, mọi deps đã xong / bỏ.
-    Kế hoạch cũ không có deps thì chạy tuần tự (chỉ task todo đầu tiên, khi không có task nào đang làm)."""
+    """Các task làm được ngay, theo thứ tự ưu tiên: todo, không đang chạy, mọi deps đã xong / bỏ, không bị hoãn.
+    Task "để cuối" (và các task chờ nó) chỉ chạy khi mọi task khác chưa xong đều đang tạm hoãn.
+    Kế hoạch cũ không có deps thì chạy tuần tự (chỉ một task, khi không có task nào đang làm)."""
     tasks = tree["tasks"]
+    held = _inherit(tasks, lambda t: t.get("hold") == "manual" and t["status"] == "todo")
+    last = _inherit(tasks, lambda t: t.get("hold") == "last")
+    others = any(t["status"] in ("todo", "doing", "blocked") and t["id"] not in held and t["id"] not in last
+                 for t in tasks)
+    cand = [t for t in tasks if t["status"] == "todo" and t["id"] not in busy and t["id"] not in held
+            and not (others and t["id"] in last)]
     if not any("deps" in t for t in tasks):
-        t = next_task(tree)
-        return [t] if t and t["id"] not in busy and not any(x["status"] == "doing" for x in tasks) else []
+        return cand[:1] if not any(x["status"] == "doing" for x in tasks) else []
     ids = {t["id"]: t for t in tasks}
-    return [t for t in tasks if t["status"] == "todo" and t["id"] not in busy
-            and all(ids[d]["status"] in ("done", "skipped") for d in t.get("deps") or [] if d in ids)]
+    return [t for t in cand if all(ids[d]["status"] in ("done", "skipped") for d in t.get("deps") or [] if d in ids)]
+
+
+def next_task(tree):
+    """Task làm được tiếp theo (ưu tiên cao nhất), hoặc None."""
+    return next(iter(ready_tasks(tree)), None)
+
+
+def tasks_left(tree):
+    """Còn task chưa xong (kể cả đang hoãn / chờ xác nhận)."""
+    return any(t["status"] in ("todo", "blocked") for t in tree["tasks"])
+
+
+def order_tasks(tasks, order):
+    """Sắp task theo thứ tự người dùng muốn nhưng không bao giờ để task đứng trước task nó phải chờ (deps)."""
+    pos = {tid: i for i, tid in enumerate(order)}
+    rest = sorted(tasks, key=lambda t: (pos.get(t["id"], len(pos)), tasks.index(t)))
+    ids, out, placed = {t["id"] for t in tasks}, [], set()
+    while rest:
+        t = next((t for t in rest if all(d in placed or d not in ids for d in t.get("deps") or [])), rest[0])
+        rest.remove(t)
+        out.append(t)
+        placed.add(t["id"])
+    return out
 
 
 def check_effort(e):
@@ -1702,14 +1816,18 @@ class Chat:
                                                        prepared), daemon=True).start()
         return {"id": c["id"]}
 
-    def run_tasks(self, cid, folder, parent, child, auto, flow=None, approve=False):
+    def run_tasks(self, cid, folder, parent, child, auto, flow=None, approve=False, skip_questions=False):
         """Con làm lần lượt các task còn lại, tới khi xong hết hoặc gặp task cần người dùng xác nhận.
         approve=True: người dùng vừa duyệt kế hoạch. Chưa duyệt thì không giao task cho Con."""
         if not cid:
             raise UserError("Chưa có kế hoạch. Hãy gửi yêu cầu cho Bố trước.")
         c, chosen, workdir = self._tree_setup(cid, "", folder, parent, child, auto, flow)
+        if approve and c["tree"].get("questions") and not skip_questions:
+            raise UserError("Bố còn câu hỏi chưa được trả lời. Hãy trả lời cho Bố trước (hoặc bấm \"Bỏ qua câu hỏi, duyệt luôn\").")
         if approve:
             c["tree"]["approved"] = True
+            if skip_questions:
+                c["tree"]["questions"] = []
         for t in c["tree"]["tasks"]:  # task kẹt "đang làm" do lần trước bị dừng ngang
             if t["status"] == "doing":
                 t["status"] = "todo"
@@ -1719,6 +1837,8 @@ class Chat:
             raise UserError("Con đang chờ xác nhận. Hãy trả lời cho Bố để Bố cập nhật kế hoạch "
                             "(hoặc bấm Bỏ qua / Làm lại ở task đó).")
         if not next_task(c["tree"]):
+            if any(t["status"] == "todo" for t in c["tree"]["tasks"]):
+                raise UserError("Các task còn lại đang tạm hoãn. Bấm \"Bỏ hoãn\" ở task muốn chạy.")
             raise UserError("Không còn task nào cần làm.")
         k = c["tree"]["child"]
         prepared = self._prepare(k["target"], k["model"])
@@ -1798,15 +1918,25 @@ class Chat:
         par = plan_parallel(msg["text"])
         if par:
             tree["parallel"] = par
+        tree["expected"] = plan_expected(msg["text"]) or tree.get("expected", "")
+        qs = plan_questions(msg["text"])
+        tree["questions"] = qs if qs is not None else []
+        miss = [f"#{t['id']}" for t in tasks if t["status"] == "todo" and not t.get("expected")]
+        if not tree["expected"] or miss:
+            msg["note"] = " ".join(filter(None, [msg.get("note"), "Bố chưa ghi kết quả dự kiến cho "
+                                                 + ", ".join((["cả kế hoạch"] if not tree["expected"] else []) + miss[:12])
+                                                 + (" …" if len(miss) > 12 else "") + ": nên yêu cầu Bố bổ sung trước khi duyệt."]))
         # Kế hoạch đổi thì phải duyệt lại. Riêng cách "tự làm": Bố chỉ cập nhật để trả lời câu hỏi
         # giữa chừng của Con (kế hoạch đã được duyệt) thì Con làm tiếp luôn.
-        if not (tree.get("auto") and was_blocked and tree.get("approved")):
+        if not (tree.get("auto") and was_blocked and tree.get("approved")) or tree["questions"]:
             tree["approved"] = False
         left = sum(t["status"] == "todo" for t in tasks)
         msg["note"] = " ".join(filter(None, [msg.get("note"), (
             f"Kế hoạch: {left} bước." if tree.get("flow") in PLAN_FLOWS
             else f"Kế hoạch: {len(tasks)} task, còn {left} task cho Con."
-            + ("" if tree.get("approved") or not left else " Chờ bạn duyệt."))]))
+            + ("" if tree.get("approved") or not left else
+               f" Bố cần bạn trả lời {len(tree['questions'])} câu hỏi trước khi duyệt." if tree["questions"]
+               else " Chờ bạn duyệt."))]))
         return True
 
     def can_answer(self):
@@ -1957,7 +2087,7 @@ class Chat:
                     save_chat(c)
                 except Exception:
                     pass
-        finished = ran and next_task(tree) is None and not any(t["status"] == "blocked" for t in tree["tasks"])
+        finished = ran and not tasks_left(tree)
         if tree.get("reviewer") and not self.cancelled and (finished or final_path):
             self._review(c, "plan" if final_path else "work", ran, chosen, workdir)
         with lock:
@@ -1966,6 +2096,7 @@ class Chat:
     def _tree_run(self, c, role, text, chosen, workdir, prepared):
         tree, ran = c["tree"], []  # ran: các task Con đã làm trong lượt này, để tổng kết
         final_path = None
+        self._c = c  # để người dùng hoãn / sắp lại task ngay trong lúc chạy
         while True:
             if role == "child" and worker_count(tree) > 1:
                 ran += self._run_children(c, chosen, workdir)
@@ -1983,9 +2114,9 @@ class Chat:
                     msg = self._turn(c, role, r["target"], tool, account, exe, text, r["model"], chosen, workdir,
                                      "read", c["messages"][:-1])
                 else:
-                    task = next_task(tree)
-                    task["status"], self.task_id = "doing", task["id"]
                     with lock:
+                        task = next_task(tree)
+                        task["status"], self.task_id = "doing", task["id"]
                         save_chat(c)
                     ran.append(task["id"])
                     msg = self._turn(c, role, r["target"], tool, account, exe, child_prompt(tree, task), r["model"],
@@ -2043,7 +2174,7 @@ class Chat:
                         pass
             if not go:
                 # Mẹ check (nếu bật): sau khi Con làm xong hết kế hoạch, hoặc sau khi chốt kế hoạch ra file .md
-                finished = ran and next_task(tree) is None and not any(t["status"] == "blocked" for t in tree["tasks"])
+                finished = ran and not tasks_left(tree)
                 if tree.get("reviewer") and not self.cancelled and (finished or final_path):
                     self._review(c, "plan" if final_path else "work", ran, chosen, workdir)
                 with lock:
@@ -2143,6 +2274,15 @@ class Chat:
                     "(kể cả quy tắc trả lời và các dòng kết thúc như XONG / CẦN XÁC NHẬN / KẾT LUẬN được yêu cầu trong file).")
         try:
             res = self._call_once(exe, tool, account, text, model, perm, workdir, session)
+            for _ in range(WAKE_RETRIES):  # bị treo sau khi máy ngủ dậy: chạy tiếp phiên đang làm dở
+                if not res.get("stalled") or self.cancelled:
+                    break
+                sid = res.get("session")
+                self._note("↻ máy vừa thức dậy, kết nối cũ đã mất: " + ("chạy tiếp phiên…" if sid else "chạy lại…"))
+                res = self._call_once(exe, tool, account, WAKE_CONTINUE if sid else text, model, perm, workdir,
+                                      sid or session)
+                if res["ok"]:
+                    res.setdefault("note", "Máy tính ngủ giữa chừng làm mất kết nối, đã tự chạy tiếp.")
             if (not res["ok"] and not self.cancelled and not res.get("text")
                     and TRANSIENT_RE.search(res.get("error") or "")):
                 self._note("↻ lỗi mạng tạm thời, thử lại sau 10 giây…")
@@ -2171,7 +2311,7 @@ class Chat:
         self.proc = proc = subprocess.Popen(args, **kw)
         self.activity = []
         # Đọc stdout từng dòng (sự kiện stream) để hiển thị trợ lý đang làm gì; stderr đọc ở luồng riêng.
-        err_parts, timed_out = [], []
+        err_parts, timed_out, stalled = [], [], []
         threading.Thread(target=lambda: err_parts.append(proc.stderr.read() or ""), daemon=True).start()
         if stdin is not None:
             def feed():
@@ -2183,15 +2323,25 @@ class Chat:
             threading.Thread(target=feed, daemon=True).start()
         # Theo dõi: dừng khi không có sự kiện nào quá CHAT_IDLE_TIMEOUT, hoặc quá CHAT_MAX_TIME (task dài mà vẫn
         # đang làm việc thì không bị cắt ngang, kể cả khi nhiều Con chạy song song làm máy chậm đi)
-        t0, last = time.time(), [time.time()]
+        # Máy ngủ thì mọi tiến trình dừng theo: thời gian ngủ không tính là im lặng / thời gian chạy.
+        t0, last, woke, sid = time.time(), [time.time()], [0.0], [None]
         stop_watch = threading.Event()
 
         def watch():
+            nonlocal t0
+            tick = time.time()
             while not stop_watch.wait(5):
                 if proc.poll() is not None:
                     return
                 now = time.time()
-                if now - last[0] > CHAT_IDLE_TIMEOUT:
+                if now - tick > 60:  # đáng lẽ chỉ cách 5 giây: máy vừa ngủ dậy
+                    t0 += now - tick
+                    last[0] = woke[0] = now
+                tick = now
+                if woke[0] and last[0] <= woke[0] and now - woke[0] > WAKE_STALL:
+                    timed_out.append("Máy tính ngủ giữa chừng làm mất kết nối nên trợ lý bị treo.")
+                    stalled.append(True)
+                elif now - last[0] > CHAT_IDLE_TIMEOUT:
                     timed_out.append(f"Không thấy trợ lý hoạt động gì trong {CHAT_IDLE_TIMEOUT // 60} phút nên đã dừng.")
                 elif now - t0 > CHAT_MAX_TIME:
                     timed_out.append(f"Lượt chạy quá {CHAT_MAX_TIME // 60} phút nên đã dừng.")
@@ -2207,18 +2357,26 @@ class Chat:
                 lines.append(line)
                 if line.startswith("{"):
                     try:
-                        self._on_event(tool, json.loads(line))
+                        e = json.loads(line)
+                        # id phiên có ngay từ đầu (claude: init, codex: thread.started, agy: step_update): để chạy tiếp
+                        # nếu bị treo
+                        s = next((d[k] for d in (e, e.get("step_update") or {})
+                                  for k in ("session_id", "thread_id", "conversation_id")
+                                  if isinstance(d.get(k), str) and d[k]), None)
+                        sid[0] = s or sid[0]
+                        self._on_event(tool, e)
                     except Exception:
                         pass
             proc.wait()
         finally:
             stop_watch.set()
         if timed_out:
-            return {"ok": False, "text": "", "session": None, "error": timed_out[0]}
+            return {"ok": False, "text": "", "session": sid[0] if stalled else None, "error": timed_out[0],
+                    "stalled": bool(stalled)}
         time.sleep(0.05)
         res = self._parse(tool, "".join(lines), "".join(err_parts))
         if (tool == "agy" and self.effort and not res["ok"] and not self.cancelled
-                and "conflicts with --effort" in (res.get("error") or "")):
+                and AGY_EFFORT_ERR_RE.search(res.get("error") or "")):
             # model này không nhận --effort: chạy lại một lần không kèm effort
             saved, self.effort = self.effort, ""
             try:
@@ -2274,6 +2432,7 @@ class Chat:
             if res["ok"]:
                 sessions[key] = {"id": res["session"] or prev.get("id"), "account": account,
                                  "seen": len(c["messages"]) + 1}
+                note = " ".join(filter(None, [note, res.get("note")])) or None
                 return {"role": "assistant", "text": res["text"], "note": note, "duration": time.time() - start}
             return {"role": "error", "text": res["error"] or "Không có phản hồi."}
         except Exception as e:
@@ -2782,6 +2941,43 @@ class Runs:
             raise UserError("Đang làm việc trong cuộc trò chuyện này. Hãy đợi xong hoặc bấm Dừng.")
         return Chat().set_task(cid, task_id, status)
 
+    def _edit_tree(self, cid, fn):
+        """Sửa kế hoạch: đang chạy thì sửa thẳng bản đang dùng (để vòng chạy thấy ngay), không thì sửa file."""
+        with lock:
+            r = self.get(cid)
+            c = r._c if r and r._c and r._c.get("id") == cid else load_chat(cid)
+            if not c.get("tree"):
+                raise UserError("Cuộc trò chuyện này không có kế hoạch.")
+            fn(c["tree"])
+            save_chat(c)
+        return {}
+
+    def set_hold(self, cid, task_id, hold):
+        """Hoãn task: "last" = để cuối, "manual" = tạm hoãn, "" = bỏ hoãn."""
+        if hold not in ("", *TASK_HOLDS):
+            raise UserError("Kiểu hoãn không hợp lệ.")
+
+        def fn(tree):
+            t = next((t for t in tree["tasks"] if t["id"] == task_id), None)
+            if not t:
+                raise UserError("Không tìm thấy task này.")
+            if t["status"] != "todo" and hold:
+                raise UserError("Chỉ hoãn được task chưa làm.")
+            if hold:
+                t["hold"] = hold
+            else:
+                t.pop("hold", None)
+        return self._edit_tree(cid, fn)
+
+    def set_order(self, cid, order):
+        """Sắp lại độ ưu tiên (order: id task theo thứ tự mới); luôn giữ task phải chờ đứng sau task nó chờ."""
+        if not isinstance(order, list) or not all(isinstance(x, int) and not isinstance(x, bool) for x in order):
+            raise UserError("Thứ tự task không hợp lệ.")
+
+        def fn(tree):
+            tree["tasks"][:] = order_tasks(tree["tasks"], order)
+        return self._edit_tree(cid, fn)
+
     def cancel(self, cid=None):
         rs = [self.get(cid)] if cid else self.running()
         rs = [r for r in rs if r]
@@ -2803,6 +2999,18 @@ class Runs:
 
 runs = Runs()
 tool_login = ToolLogin()
+
+
+def keep_awake():
+    """Windows: đang có cuộc trò chuyện chạy thì không cho máy tự ngủ khi để yên (vẫn ngủ khi gập máy / chọn Sleep)."""
+    awake = False
+    while True:
+        want = bool(runs.running())
+        if want != awake:
+            # ES_CONTINUOUS | ES_SYSTEM_REQUIRED; chỉ ES_CONTINUOUS = trả lại như bình thường (áp dụng cho luồng này)
+            ctypes.windll.kernel32.SetThreadExecutionState(0x80000000 | (0x00000001 if want else 0))
+            awake = want
+        time.sleep(10)
 
 
 # ---------------------------------------------------------------- actions
@@ -2900,6 +3108,215 @@ def do_remove(name):
     return {}
 
 
+# ---------------------------------------------------------------- chuyển đăng nhập sang máy khác
+# Xuất các tài khoản đã đăng nhập thành MỘT chuỗi để dán sang máy khác. Nội dung là JSON (token agy / Claude Code /
+# Codex), nén rồi mã hóa bằng mật khẩu người dùng đặt: PBKDF2-SHA256 -> HMAC-SHA256 dạng bộ đếm (stream) + HMAC kiểm
+# tra toàn vẹn. Token agy trên máy được khóa bằng DPAPI (chỉ máy này mở được) nên khi xuất phải mở ra, khi nhập
+# máy kia khóa lại bằng DPAPI của nó.
+EXPORT_PREFIX = "NCTAI1:"
+EXPORT_ITER = 200_000
+MIN_PASSWORD = 6
+
+
+def _stream(key, nonce, n):
+    out, i = bytearray(), 0
+    while len(out) < n:
+        out += hmac.new(key, nonce + i.to_bytes(8, "big"), hashlib.sha256).digest()
+        i += 1
+    return bytes(out[:n])
+
+
+def seal(data, password):
+    salt, nonce = os.urandom(16), os.urandom(16)
+    k = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, EXPORT_ITER, 64)
+    body = zlib.compress(data, 9)
+    ct = bytes(a ^ b for a, b in zip(body, _stream(k[:32], nonce, len(body))))
+    mac = hmac.new(k[32:], salt + nonce + ct, hashlib.sha256).digest()
+    return EXPORT_PREFIX + base64.urlsafe_b64encode(salt + nonce + mac + ct).decode().rstrip("=")
+
+
+def unseal(text, password):
+    text = re.sub(r"\s+", "", text or "")
+    if not text.startswith(EXPORT_PREFIX):
+        raise UserError("Chuỗi không đúng định dạng (phải bắt đầu bằng NCTAI1:).")
+    try:
+        raw = base64.urlsafe_b64decode(text[len(EXPORT_PREFIX):] + "=" * (-len(text) % 4))
+    except ValueError:
+        raise UserError("Chuỗi bị lỗi hoặc bị cắt mất một phần.")
+    if len(raw) < 64:
+        raise UserError("Chuỗi bị lỗi hoặc bị cắt mất một phần.")
+    salt, nonce, mac, ct = raw[:16], raw[16:32], raw[32:64], raw[64:]
+    k = hashlib.pbkdf2_hmac("sha256", (password or "").encode("utf-8"), salt, EXPORT_ITER, 64)
+    if not hmac.compare_digest(mac, hmac.new(k[32:], salt + nonce + ct, hashlib.sha256).digest()):
+        raise UserError("Sai mật khẩu, hoặc chuỗi bị sửa / thiếu.")
+    try:
+        return zlib.decompress(bytes(a ^ b for a, b in zip(ct, _stream(k[:32], nonce, len(ct)))))
+    except zlib.error:
+        raise UserError("Chuỗi bị lỗi.")
+
+
+def _claude_json_path(target):
+    """File chứa thông tin tài khoản Claude (oauthAccount): mặc định ~/.claude.json, tài khoản riêng nằm trong thư mục cấu hình."""
+    name = target.partition(":")[2]
+    if name or os.environ.get("CLAUDE_CONFIG_DIR"):
+        return _claude_home(target) / ".claude.json"
+    return Path.home() / ".claude.json"
+
+
+def _codex_home(target):
+    name = target.partition(":")[2]
+    return tool_home("codex", name) if name else default_codex_home()
+
+
+def _read_json(path):
+    try:
+        return json.loads(Path(path).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+
+
+def transfer_list():
+    """Các tài khoản có thể xuất: profile agy đã lưu, tài khoản Claude Code / Codex đã đăng nhập trên máy này."""
+    labels = load_config().get("account_labels", {})
+    out = [{"target": f"agy:{p['name']}", "tool": "agy", "who": p.get("email"), "label": labels.get(f"agy:{p['name']}", "")}
+           for p in list_profiles()]
+    auth = tool_auth()
+    for tool in TOOL_HOME_ENV:
+        for target in tool_targets(tool):
+            a = auth.get(target) or {}
+            f = _claude_home(target) / ".credentials.json" if tool == "claude" else _codex_home(target) / "auth.json"
+            if f.is_file():
+                out.append({"target": target, "tool": tool, "who": a.get("who"), "label": labels.get(target, ""),
+                            "logged_in": a.get("logged_in")})
+    return {"accounts": out}
+
+
+def export_logins(targets, password):
+    if not isinstance(targets, list) or not targets:
+        raise UserError("Chọn ít nhất một tài khoản để xuất.")
+    if not isinstance(password, str) or len(password) < MIN_PASSWORD:
+        raise UserError(f"Đặt mật khẩu cho chuỗi (ít nhất {MIN_PASSWORD} ký tự). Máy kia cần mật khẩu này để nhập.")
+    cfg = load_config()
+    labels, models = cfg.get("account_labels", {}), cfg.get("account_models", {})
+    with lock:
+        if read_current():
+            sync_current_back()  # lấy token agy mới nhất trước khi xuất
+    accounts = []
+    for target in targets:
+        if not isinstance(target, str) or not TARGET_RE.match(target):
+            raise UserError("Tài khoản không hợp lệ.")
+        tool, _, name = target.partition(":")
+        acc = {"tool": tool, "name": name, "label": labels.get(target, "")}
+        if tool == "agy":
+            data, rec = load_profile(name)
+            acc.update(email=data.get("email"), model=models.get(name, ""),
+                       cred={"blob": base64.b64encode(rec["blob"]).decode(), "username": rec.get("username"),
+                             "comment": rec.get("comment"), "persist": rec.get("persist")})
+        elif tool == "claude":
+            cred = _read_json(_claude_home(target) / ".credentials.json")
+            if not cred:
+                raise UserError(f"{target}: chưa đăng nhập Claude Code nên không có gì để xuất.")
+            info = (_read_json(_claude_json_path(target)) or {}).get("oauthAccount")
+            acc.update(credentials=cred, oauthAccount=info, model=models.get("@" + target, ""),
+                       email=(info or {}).get("emailAddress"))
+        else:
+            auth = _read_json(_codex_home(target) / "auth.json")
+            if not auth:
+                raise UserError(f"{target}: chưa đăng nhập Codex nên không có gì để xuất.")
+            acc.update(auth=auth, model=models.get("@" + target, ""), email=(auth_cache["data"].get(target) or {}).get("who"))
+        accounts.append(acc)
+    payload = {"v": 1, "app": "NCT AI Connect", "at": int(time.time()), "accounts": accounts}
+    return {"text": seal(json.dumps(payload, ensure_ascii=False).encode("utf-8"), password), "count": len(accounts)}
+
+
+def _import_name(tool, acc, exists, same):
+    """Tên trên máy này: giữ tên cũ (tài khoản mặc định thì lấy theo email); trùng tên khác người thì thêm -2, -3..."""
+    base = acc.get("name") or re.sub(r"[^A-Za-z0-9_-]+", "-", (acc.get("email") or "").split("@")[0]).strip("-_")[:30] \
+        or f"{tool}-nhap"
+    base = base[:36] if NAME_RE.match(base) else f"{tool}-nhap"
+    name, n = base, 2
+    while exists(name) and not same(name):
+        name, n = f"{base}-{n}", n + 1
+    return name
+
+
+def import_logins(text, password):
+    try:
+        payload = json.loads(unseal(text, password))
+        accounts = payload["accounts"]
+        assert isinstance(accounts, list)
+    except UserError:
+        raise
+    except Exception:
+        raise UserError("Chuỗi không chứa danh sách tài khoản hợp lệ.")
+    done = []
+    with lock:
+        for acc in accounts:
+            tool = acc.get("tool") if isinstance(acc, dict) else None
+            if tool == "agy":
+                c = acc.get("cred") or {}
+                rec = {"blob": base64.b64decode(c.get("blob") or ""), "username": c.get("username"),
+                       "comment": c.get("comment"), "persist": c.get("persist")}
+                if not rec["blob"]:
+                    continue
+                email = extract_email(rec["blob"]) or acc.get("email")
+                name = _import_name("agy", acc, lambda n: profile_path(n).exists(),
+                                    lambda n: email and (_read_json(profile_path(n)) or {}).get("email") == email)
+                target = f"agy:{name}"
+                if name == read_current():  # đúng tài khoản agy đang dùng trên máy này: giữ token đang chạy
+                    done.append({"target": target, "who": email, "skipped": True})
+                    continue
+                save_profile(name, rec)
+                if acc.get("model"):
+                    do_set_model(name, acc["model"])
+            elif tool in TOOL_HOME_ENV:
+                email = acc.get("email")
+                fname = ".credentials.json" if tool == "claude" else "auth.json"
+                data = acc.get("credentials") if tool == "claude" else acc.get("auth")
+                if not isinstance(data, dict):
+                    continue
+
+                def same(n, tool=tool):
+                    if not email:
+                        return False
+                    if tool == "claude":
+                        return ((_read_json(tool_home(tool, n) / ".claude.json") or {}).get("oauthAccount") or {}) \
+                            .get("emailAddress") == email
+                    return (auth_cache["data"].get(f"{tool}:{n}") or {}).get("who") == email
+                name = _import_name(tool, acc, lambda n, tool=tool: tool_home(tool, n).exists(), same)
+                target = f"{tool}:{name}"
+                if runs.busy_with(lambda r: r.target == target):
+                    raise UserError(f"{target} đang trả lời trong Chat. Hãy đợi xong rồi nhập lại.")
+                home = tool_home(tool, name)
+                home.mkdir(parents=True, exist_ok=True)
+                (home / fname).write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+                if tool == "claude":
+                    info = _read_json(home / ".claude.json") or {}
+                    if acc.get("oauthAccount"):
+                        info["oauthAccount"] = acc["oauthAccount"]
+                    info["hasCompletedOnboarding"] = True
+                    (home / ".claude.json").write_text(json.dumps(info, ensure_ascii=False), encoding="utf-8")
+                elif (default_codex_home() / "config.toml").is_file() and not (home / "config.toml").exists():
+                    shutil.copy2(default_codex_home() / "config.toml", home / "config.toml")  # giữ provider, model
+                auth_cache["data"].pop(target, None)
+                if acc.get("model"):
+                    do_set_model("@" + target, acc["model"])
+            else:
+                continue
+            if acc.get("label"):
+                set_account_label(target, acc["label"])
+            done.append({"target": target, "who": acc.get("email")})
+    if not done:
+        raise UserError("Chuỗi không có tài khoản nào nhập được.")
+    if read_current() is None and any(d["target"].startswith("agy:") and not d.get("skipped") for d in done) \
+            and not agy_running() and cred_read() is None:
+        with lock:  # máy này chưa đăng nhập agy tài khoản nào: dùng luôn tài khoản agy đầu tiên vừa nhập
+            switch_to(next(d["target"] for d in done if d["target"].startswith("agy:")).partition(":")[2])
+    auth_cache["at"] = 0  # kiểm tra lại đăng nhập Claude Code / Codex
+    tool_auth()
+    return {"imported": done}
+
+
 def route(path, body):
     name = body.get("name")
     if path == "/api/account-label":
@@ -2919,6 +3336,12 @@ def route(path, body):
         if path == "/api/tool-login/cancel":
             tool_login.cancel()
             return {}
+        if path == "/api/transfer/list":
+            return transfer_list()
+        if path == "/api/transfer/export":
+            return export_logins(body.get("targets"), body.get("password"))
+        if path == "/api/transfer/import":
+            return import_logins(body.get("text"), body.get("password"))
         if path == "/api/tool-remove":
             return do_tool_remove(body.get("tool"), name)
         if path == "/api/account-model":
@@ -2933,6 +3356,7 @@ def route(path, body):
         if path == "/api/tree/run":
             return runs.run_tasks(body.get("lang"), body.get("id"), body.get("folder"), body.get("parent"), body.get("child"),
                                   body.get("auto"), body.get("flow"), bool(body.get("approve")),
+                                  bool(body.get("skip_questions")),
                                   reviewer=body.get("reviewer", "keep"), workers=body.get("workers"))
         if path == "/api/tree/finalize":
             return runs.finalize(body.get("lang"), body.get("id"), body.get("folder"), body.get("parent"),
@@ -2940,6 +3364,10 @@ def route(path, body):
                                  reviewer=body.get("reviewer", "keep"))
         if path == "/api/tree/task":
             return runs.set_task(body.get("id"), body.get("task"), body.get("status"))
+        if path == "/api/tree/hold":
+            return runs.set_hold(body.get("id"), body.get("task"), body.get("hold") or "")
+        if path == "/api/tree/order":
+            return runs.set_order(body.get("id"), body.get("order"))
         if path == "/api/chat/cancel":
             runs.cancel(body.get("id"))
             return {}
@@ -3161,6 +3589,21 @@ summary{cursor:pointer;color:var(--muted);font-size:14px}
 pre{max-height:200px;overflow:auto;font-size:12px;line-height:1.4;background:var(--bg);padding:10px;border-radius:8px;white-space:pre-wrap;overflow-wrap:anywhere;margin:8px 0 0}
 .notice{margin-top:14px;padding:14px 16px;border-radius:12px;border:1px dashed var(--line)}
 #view-accounts{padding:0 6px 40px}
+.tool-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 18px;align-items:start}
+@media (max-width:900px){.tool-grid{grid-template-columns:1fr}}
+.now.compact{display:flex;align-items:baseline;gap:4px 12px;flex-wrap:wrap;margin:6px 0 14px}
+.now.compact h1{font-size:20px;margin:0}
+.now.compact .label,.now.compact .sub{font-size:13px}
+.stabs{display:inline-flex;margin-bottom:6px;flex-wrap:wrap}
+#view-accounts section{margin-top:26px}
+#view-accounts section.first{margin-top:14px}
+.xfer textarea{width:100%;box-sizing:border-box;font-family:ui-monospace,Consolas,monospace;font-size:12px;margin-top:4px}
+.xrow{display:flex;align-items:center;gap:10px;padding:9px 14px;border-top:1px solid var(--line);cursor:pointer;font-size:14px}
+.xrow:first-child{border-top:0}
+.xrow input{flex:none;min-width:0;width:16px;height:16px;margin:0;accent-color:var(--accent)}
+.xrow .who{color:var(--muted);font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.warn-box{border:1px solid var(--warn);color:var(--warn);border-radius:10px;padding:8px 12px;margin-top:22px}
+.rx-ok{margin-top:10px;border:1px solid var(--live);border-radius:10px;padding:8px 12px;font-size:14px}
 #view-usage{padding:0 0 24px}
 section.first{margin-top:4px}
 .tabs{display:flex;gap:4px;padding:3px;border:1px solid var(--line);border-radius:11px;background:var(--panel)}
@@ -3267,6 +3710,49 @@ textarea{font:inherit;padding:10px 12px;border-radius:9px;border:1px solid var(-
 .task summary{color:var(--ink);font-size:14px;list-style-position:inside}
 .task .detail{white-space:pre-wrap;color:var(--muted);font-size:13px;margin:4px 0 0;overflow-wrap:anywhere}
 .task button{flex:none}
+.tnode{display:flex;flex-direction:column}
+.tasks .tview{align-self:flex-start;margin:0 0 6px}
+.tasks .tview button{padding:3px 12px;font-size:12px}
+.tasks-resize{flex:none;width:6px;margin-left:-3px;cursor:col-resize;position:relative;z-index:2}
+.tasks-resize:hover,body.resizing .tasks-resize{background:var(--accent);opacity:.5}
+body.resizing{cursor:col-resize;user-select:none}
+.tgraph-wrap{overflow:auto;padding:4px 0 8px;flex:none;max-height:70vh}
+.tgraph{position:relative;margin:0 auto}
+.tgraph svg{position:absolute;inset:0;overflow:visible}
+.tgraph line{stroke:var(--muted);stroke-width:1.6;opacity:.7}
+.tgraph line.ok{stroke:var(--live)}
+.tgraph line.extra{stroke-dasharray:4 4}
+.gnode{position:absolute}
+.task.gcard{height:56px;box-sizing:border-box;border:1px solid var(--line);border-radius:10px;background:var(--bg);padding:6px 8px;
+  display:flex;flex-wrap:wrap;align-content:flex-start;gap:2px 6px;cursor:pointer;overflow:hidden}
+.task.gcard[data-grip]{cursor:grab}
+.task.gcard .st{width:auto}
+.task.gcard .tt{flex:1;min-width:0;font-size:12.5px;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.task.gcard .hold{margin:0;width:100%}
+.task.gcard.done{border-color:var(--live)}
+.task.gcard.doing{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.task.gcard.blocked{border-color:var(--warn)}
+.gnode.sel .task.gcard{outline:2px solid var(--accent);outline-offset:1px}
+.gnode.drop-before>.task{box-shadow:inset 4px 0 0 var(--accent)}
+.gnode.drop-after>.task{box-shadow:inset -4px 0 0 var(--accent)}
+.tnode.tsel>.task{background:var(--bg);border:1px solid var(--accent)}
+.qlist{margin:6px 0 8px;padding-left:20px;white-space:normal}
+.qlist li{margin:3px 0}
+.expect{white-space:pre-wrap;font-size:13px;border:1px solid var(--live);border-radius:10px;padding:8px 10px;margin:4px 0 6px;overflow-wrap:anywhere}
+.expect b{color:var(--live)}
+.expect.miss{border-color:var(--warn);color:var(--warn)}
+.task .detail.expect-t b{color:var(--live)}
+.tchain-h{font-size:12px;font-weight:600;color:var(--muted);margin:10px 0 2px;padding-top:6px;border-top:1px solid var(--line)}
+.gnode.dim{opacity:.4}
+.gnode.chain .task.gcard{border-color:var(--accent)}
+.tgraph line.hl{stroke:var(--accent);opacity:1;stroke-width:2.4}
+.task .grip{flex:none;width:10px;cursor:grab;color:var(--muted);user-select:none;line-height:20px}
+.task .hold{font-size:11px;color:var(--warn);margin-left:6px;white-space:nowrap}
+.task.held .tt{color:var(--muted)}
+.task .acts{display:flex;gap:4px;flex-wrap:wrap;margin-top:6px}
+.tnode.dragging{opacity:.4}
+.tnode.drop-before>.task{box-shadow:inset 0 2px 0 var(--accent)}
+.tnode.drop-after>.task{box-shadow:inset 0 -2px 0 var(--accent)}
 .ask{border:1px solid var(--warn);border-radius:10px;padding:10px 12px;font-size:14px;white-space:pre-wrap;overflow-wrap:anywhere}
 .ask b{color:var(--warn)}
 .msg.as-parent{border-left:3px solid var(--accent)}
@@ -3499,6 +3985,7 @@ dialog.modal .acts .left{margin-right:auto}
         </div>
         <div class="conv-body">
           <aside class="tasks" id="tasks" aria-label="Kế hoạch" hidden></aside>
+          <div class="tasks-resize" id="tasks-resize" title="Kéo để đổi độ rộng (bấm đúp: về mặc định)" hidden></div>
           <div class="messages" id="messages" aria-live="polite"></div>
         </div>
         <div class="composer">
@@ -3561,42 +4048,22 @@ dialog.modal .acts .left{margin-right:auto}
   <div id="u-tip" role="tooltip"></div>
 
   <div id="view-accounts" hidden>
-  <div class="now" aria-live="polite">
+  <div class="now compact" aria-live="polite">
     <p class="label">Antigravity CLI đang dùng</p>
     <h1 id="now-email">…</h1>
     <p class="sub" id="now-sub"></p>
   </div>
+  <div class="tabs stabs" role="tablist" aria-label="Mục cài đặt">
+    <button role="tab" data-stab="acc" aria-selected="true">Tài khoản</button>
+    <button role="tab" data-stab="transfer" aria-selected="false">Chuyển sang máy khác</button>
+    <button role="tab" data-stab="agy" aria-selected="false">Công cụ agy</button>
+    <button role="tab" data-stab="hist" aria-selected="false">Lịch sử</button>
+  </div>
+
+  <div data-spane="acc">
   <div id="running"></div>
   <div id="unsaved"></div>
-
-  <section>
-    <h2>Antigravity (agy)</h2>
-    <div class="list" id="list"><div class="empty">Đang tải…</div></div>
-    <p class="hint">Model chọn ở mỗi tài khoản được dùng khi chat và khi mở agy.
-      <button id="models-refresh" class="small" style="margin-left:6px">Tải lại danh sách model agy</button></p>
-  </section>
-
-  <section>
-    <h2>Claude Code</h2>
-    <div class="list" id="claude-list"><div class="empty">Đang kiểm tra…</div></div>
-  </section>
-
-  <section>
-    <h2>Codex</h2>
-    <div class="list" id="codex-list"><div class="empty">Đang kiểm tra…</div></div>
-    <p class="hint">"Mặc định" là tài khoản đang đăng nhập sẵn trên máy (~/.claude, ~/.codex). Mỗi tài khoản thêm vào có thư mục cấu hình riêng, nên các tài khoản không ghi đè nhau.
-      <button id="tools-recheck" class="small" style="margin-left:6px">Kiểm tra lại</button></p>
-  </section>
-
-  <section>
-    <h2>Lịch sử chung</h2>
-    <p class="hint" style="margin:0 0 10px">Mỗi cuộc trò chuyện được ghi thành một file .md trong <code>~/.agy-profiles/history</code>,
-      và một bản sao trong <code>.ai-history</code> của mỗi thư mục project đã làm việc (có sẵn .gitignore để không bị commit).
-      Khi đổi công cụ, tài khoản hoặc thư mục, phần lịch sử mà trợ lý mới chưa thấy được tự gửi kèm, để nó biết trước đó đã làm gì.</p>
-    <button id="history-dir" class="small">Mở thư mục lịch sử</button>
-  </section>
-
-  <section>
+  <section class="first">
     <h2>Thêm tài khoản</h2>
     <div class="field">
       <select id="new-tool" aria-label="Công cụ">
@@ -3609,9 +4076,58 @@ dialog.modal .acts .left{margin-right:auto}
     </div>
     <p class="hint" id="login-hint"></p>
     <div id="login-panel"></div>
+    <p class="hint">Đã đăng nhập ở máy khác? Dùng tab <b>Chuyển sang máy khác</b> để nhập luôn, không cần đăng nhập lại.</p>
   </section>
-
+  <div class="tool-grid">
   <section>
+    <h2>Antigravity (agy)</h2>
+    <div class="list" id="list"><div class="empty">Đang tải…</div></div>
+    <p class="hint">Model chọn ở mỗi tài khoản được dùng khi chat và khi mở agy.
+      <button id="models-refresh" class="small" style="margin-left:6px">Tải lại danh sách model agy</button></p>
+  </section>
+  <section>
+    <h2>Claude Code</h2>
+    <div class="list" id="claude-list"><div class="empty">Đang kiểm tra…</div></div>
+  </section>
+  <section>
+    <h2>Codex</h2>
+    <div class="list" id="codex-list"><div class="empty">Đang kiểm tra…</div></div>
+  </section>
+  </div>
+    <p class="hint">"Mặc định" là tài khoản đang đăng nhập sẵn trên máy (~/.claude, ~/.codex). Mỗi tài khoản thêm vào có thư mục cấu hình riêng, nên các tài khoản không ghi đè nhau.
+      <button id="tools-recheck" class="small" style="margin-left:6px">Kiểm tra lại</button></p>
+  </div>
+
+  <div data-spane="transfer" class="xfer" hidden>
+  <section class="first">
+    <h2>Xuất đăng nhập (máy đang dùng)</h2>
+    <p class="hint" style="margin:0 0 10px">Chọn tài khoản và đặt mật khẩu: app tạo một chuỗi đã mã hóa để dán sang máy khác.
+      Ai có cả chuỗi lẫn mật khẩu là dùng được các tài khoản này: giữ kín, gửi mật khẩu bằng đường khác với chuỗi.</p>
+    <div class="list" id="tx-list"><div class="empty">Đang tải…</div></div>
+    <div class="field" style="margin-top:10px">
+      <input id="tx-pass" type="password" placeholder="Mật khẩu cho chuỗi (ít nhất 6 ký tự)" autocomplete="new-password">
+      <button id="tx-export" class="primary">Tạo chuỗi</button>
+    </div>
+    <div id="tx-out" hidden>
+      <textarea id="tx-text" readonly rows="4" data-noi18n></textarea>
+      <div class="field"><button id="tx-copy">Sao chép chuỗi</button><span class="hint" id="tx-info" style="margin:0;align-self:center"></span></div>
+    </div>
+  </section>
+  <section>
+    <h2>Nhập đăng nhập (máy mới)</h2>
+    <textarea id="rx-text" rows="4" placeholder="Dán chuỗi NCTAI1:… từ máy kia" spellcheck="false"></textarea>
+    <div class="field" style="margin-top:8px">
+      <input id="rx-pass" type="password" placeholder="Mật khẩu của chuỗi" autocomplete="off">
+      <button id="rx-import" class="primary">Nhập tài khoản</button>
+    </div>
+    <p class="hint">Tài khoản đã có trên máy này (cùng email) thì được cập nhật; trùng tên với tài khoản khác thì thêm hậu tố -2, -3. Model và tên hiển thị đi kèm.</p>
+    <div id="rx-out"></div>
+  </section>
+  <p class="hint warn-box">Lưu ý: Claude Code và Codex tự đổi token định kỳ. Dùng cùng một tài khoản trên 2 máy cùng lúc thì đôi khi một máy bị đăng xuất: khi đó xuất lại từ máy còn chạy, hoặc đăng nhập riêng trên máy kia.</p>
+  </div>
+
+  <div data-spane="agy" hidden>
+  <section class="first">
     <h2>Mở agy</h2>
     <div class="field">
       <input id="folder" list="recent" placeholder="Thư mục project, ví dụ: C:\Users\nguye\code\myapp" autocomplete="off">
@@ -3621,11 +4137,21 @@ dialog.modal .acts .left{margin-right:auto}
     <label class="check"><input type="checkbox" id="cont"> Tiếp tục cuộc trò chuyện gần nhất (--continue)</label>
     <p class="hint">Khi agy đang chạy, bấm vào tài khoản khác: công cụ sẽ đóng agy, chuyển tài khoản và mở lại agy ở thư mục này.</p>
   </section>
-
   <section>
     <h2>Kiểm tra lịch sử khi đổi tài khoản agy</h2>
     <div id="selftest"></div>
   </section>
+  </div>
+
+  <div data-spane="hist" hidden>
+  <section class="first">
+    <h2>Lịch sử chung</h2>
+    <p class="hint" style="margin:0 0 10px">Mỗi cuộc trò chuyện được ghi thành một file .md trong <code>~/.agy-profiles/history</code>,
+      và một bản sao trong <code>.ai-history</code> của mỗi thư mục project đã làm việc (có sẵn .gitignore để không bị commit).
+      Khi đổi công cụ, tài khoản hoặc thư mục, phần lịch sử mà trợ lý mới chưa thấy được tự gửi kèm, để nó biết trước đó đã làm gì.</p>
+    <button id="history-dir" class="small">Mở thư mục lịch sử</button>
+  </section>
+  </div>
   </div>
 </main>
 <dialog class="modal" id="rename-dlg" aria-labelledby="rename-title">
@@ -3649,7 +4175,7 @@ const $ = s => document.querySelector(s);
 let LANG = 'vi';
 try { LANG = localStorage.getItem('nguyen-swap-lang') === 'en' ? 'en' : 'vi'; } catch (e) {}
 const LOC = LANG === 'en' ? 'en-US' : 'vi-VN';
-const EN = {"Bố ({0}) đang cập nhật kế hoạch theo câu trả lời của bạn…": "Parent ({0}) is updating the plan from your answer…", "Bố · cập nhật kế hoạch": "Parent · updating plan", "Thu gọn / mở danh sách trò chuyện": "Collapse / expand conversation list", "Mức sử dụng": "Usage", "Cài đặt": "Settings", "Tắt server": "Stop server", "Ngôn ngữ": "Language", "Cuộc trò chuyện mới": "New conversation", "Chưa có cuộc trò chuyện nào.": "No conversations yet.", "Xóa cuộc trò chuyện": "Delete conversation", "(trống)": "(empty)", "chat riêng": "private chat", "Cây task · {0}/{1} xong": "Task tree · {0}/{1} done", "Chế độ": "Mode", "Chat thường": "Chat", "Cây task Bố–Con": "Parent–Child tasks", "Thu gọn / mở phần cấu hình": "Collapse / expand settings", "Thu gọn ▴": "Collapse ▴", "Mở rộng ▾": "Expand ▾", "Bố": "Parent", "Con": "Child", "Bố làm": "Parent works", "Bố: ": "Parent: ", "Con: ": "Child: ", "Bố: ai lập kế hoạch": "Parent: who plans", "Model của Bố": "Parent's model", "Effort của Bố": "Parent's effort", "Mức suy nghĩ: cao hơn thì kỹ hơn nhưng chậm và tốn hạn mức hơn": "Thinking effort: higher is more thorough but slower and uses more quota", "Effort mặc định": "Default effort", "Effort: thấp": "Effort: low", "Effort: vừa": "Effort: medium", "Effort: cao": "Effort: high", "Effort: rất cao": "Effort: very high", "Effort: tối đa": "Effort: max", "chỉ đọc, lập kế hoạch": "read-only, plans", "lập kế hoạch rồi tự làm": "plans, then does the work", "Ai làm việc": "Who works", "Quyền": "Permission", "Chỉ đọc, trả lời": "Read-only, answer", "Được sửa file": "Can edit files", "Toàn quyền (chạy lệnh)": "Full access (run commands)", "Làm việc trong": "Work in", "Thư mục chat riêng (để trống), hoặc dán đường dẫn: C:\\code\\du-an": "Private chat folder (leave empty), or paste a path: C:\\code\\my-project", "Chọn…": "Browse…", "Cách làm": "Workflow", "Bố lập kế hoạch → bạn xác nhận → Con làm": "Parent plans → you confirm → Child works", "Bố lập kế hoạch → Con tự làm luôn": "Parent plans → Child works right away", "Bố lập kế hoạch và tự làm": "Parent plans and does the work", "Con lập kế hoạch và tự làm": "Child plans and does the work", "Bố lập kế hoạch, chờ xác nhận": "Parent plans, waits for confirmation", "Bố lập kế hoạch, Con tự làm": "Parent plans, Child works", "Bố lập kế hoạch và làm": "Parent plans and works", "Con lập kế hoạch và làm": "Child plans and works", "chỉ đọc và trả lời": "read-only, answers", "được sửa file": "can edit files", "toàn quyền, kể cả chạy lệnh": "full access, including running commands", "thư mục chat riêng": "the private chat folder", "Bố ({0}) lập kế hoạch rồi tự làm trong {1}, {2}.": "Parent ({0}) plans, then works in {1}, {2}.", "Con ({0}) lập kế hoạch rồi tự làm trong {1}, {2}.": "Child ({0}) plans, then works in {1}, {2}.", "Bố ({0}) chỉ đọc và lập kế hoạch · Con ({1}) làm trong {2}, {3}, sau khi bạn bấm \"Con bắt đầu làm\".": "Parent ({0}) is read-only and plans · Child ({1}) works in {2}, {3}, after you press \"Child starts\".", "Bố ({0}) chỉ đọc và lập kế hoạch · Con ({1}) làm trong {2}, {3}, tự làm ngay khi có kế hoạch.": "Parent ({0}) is read-only and plans · Child ({1}) works in {2}, {3}, as soon as there is a plan.", "{0} sẽ làm việc trong {1}, {2}.": "{0} will work in {1}, {2}.", "Kế hoạch": "Plan", "Kế hoạch · {0}/{1} xong": "Plan · {0}/{1} done", "Giao việc hoặc hỏi… (Enter để gửi, Shift+Enter để xuống dòng)": "Give a task or ask… (Enter to send, Shift+Enter for a new line)", "Trả lời câu hỏi của Con… Bố sẽ phân tích và cập nhật kế hoạch (Enter để gửi)": "Answer Child's question… Parent will analyse it and update the plan (Enter to send)", "Mô tả việc cần làm, hoặc góp ý kế hoạch… Bố sẽ chia thành các task chi tiết cho Con (Enter để gửi)": "Describe the work, or give feedback on the plan… Parent will split it into detailed tasks for Child (Enter to send)", "Đính kèm ảnh / file (có thể kéo thả hoặc dán ảnh bằng Ctrl+V)": "Attach images / files (drag and drop, or paste images with Ctrl+V)", "📎 Đính kèm": "📎 Attach", "lỗi": "error", "Mở file lịch sử chung của cuộc trò chuyện này": "Open this conversation's shared history file", "Lịch sử chung": "Shared history", "Xóa các file lịch sử chat trong .ai-history của thư mục đang chọn": "Delete the chat history files in .ai-history of the selected folder", "Xóa lịch sử trong project": "Clear project history", "Gửi": "Send", "Gửi cho Bố": "Send to Parent", "Dừng": "Stop", "Bố (model mạnh, chỉ đọc) phân tích yêu cầu và chia thành các task chi tiết. Con (model rẻ hơn) đọc và làm lần lượt từng task. Task nào cần bạn xác nhận thì Con dừng lại và hỏi: bạn trả lời cho Bố, Bố cập nhật kế hoạch, rồi Con làm tiếp. Mô tả việc cần làm rồi bấm \"Gửi cho Bố\".": "Parent (strong model, read-only) analyses the request and splits it into detailed tasks. Child (cheaper model) does the tasks one by one. When a task needs your confirmation, Child stops and asks: you answer Parent, Parent updates the plan, then Child continues. Describe the work, then press \"Send to Parent\".", "Chọn ai làm việc (một tài khoản Antigravity, Claude Code hoặc Codex), chọn model và thư mục làm việc, rồi nhắn việc cần làm. Các tin sau nối tiếp cùng phiên. Mỗi tin chạy ở chế độ không tương tác nên không thể hỏi lại bạn giữa chừng: muốn nó sửa code thì đặt quyền \"Được sửa file\".": "Pick who works (an Antigravity, Claude Code or Codex account), the model and the working folder, then describe the task. Later messages continue the same session. Each message runs non-interactively, so it cannot ask you anything mid-way: to let it change code, set the permission to \"Can edit files\".", "Chưa làm": "To do", "Con đang làm": "Child is working", "Xong": "Done", "Cần xác nhận": "Needs confirmation", "Bỏ qua": "Skip", "Làm lại": "Redo", "Con báo:": "Child reported:", "Con bắt đầu làm": "Child starts", "Con làm tiếp": "Child continues", "Bố bắt đầu làm": "Parent starts", "Bố làm tiếp": "Parent continues", "Chưa có task nào. Bố sẽ lập danh sách task khi trả lời.": "No tasks yet. Parent will create the task list when it replies.", "Con cần bạn xác nhận ở task #{0}:": "Child needs your confirmation on task #{0}:", "Mẫu trả lời đã được điền sẵn ở ô bên dưới: điền tiếp rồi bấm \"Gửi cho Bố\". Bố phân tích, cập nhật task cho rõ, rồi Con tự làm tiếp.": "An answer template is filled in below: complete it, then press \"Send to Parent\". Parent analyses it, clarifies the tasks, then Child continues automatically.", "Mẫu trả lời đã được điền sẵn ở ô bên dưới: điền tiếp rồi bấm \"Gửi cho Bố\". Bố phân tích, cập nhật task cho rõ, rồi bấm \"Con làm tiếp\".": "An answer template is filled in below: complete it, then press \"Send to Parent\". Parent analyses it and clarifies the tasks, then press \"Child continues\".", "Điền lại mẫu trả lời": "Refill answer template", "Trả lời câu hỏi của Con ở task #{0}": "Answer to Child's question on task #{0}", "(Danh sách task: xem bảng kế hoạch phía trên.)": "(Task list: see the plan panel.)", "Tổng kết sau khi Con làm": "Summary after Child worked", "Bố đã trả lời.": "Parent replied.", "Bố đã cập nhật kế hoạch: {0}/{1} task xong": "Parent updated the plan: {0}/{1} tasks done", "Con đã dừng: {0}/{1} task xong": "Child stopped: {0}/{1} tasks done", ". Xem kết quả và câu hỏi (nếu có) trong cuộc trò chuyện.": ". See the results and any questions in the conversation.", ". Đã xong toàn bộ kế hoạch.": ". The whole plan is done.", "Chọn trợ lý cho cả Bố và Con.": "Pick an assistant for both Parent and Child.", "Tối đa 10 file mỗi tin nhắn.": "At most 10 files per message.", "{0}: quá lớn (tối đa 25 MB).": "{0}: too large (max 25 MB).", "Đợi tải file lên xong rồi gửi.": "Wait for the uploads to finish, then send.", "Xem file đính kèm.": "See the attached files.", "Chưa có ai để chat: thêm tài khoản agy, hoặc cài Claude Code / Codex.": "No one to chat with: add an agy account, or install Claude Code / Codex.", "Hạn mức": "Quotas", "Thống kê": "Statistics", "Lọc theo công cụ": "Filter by tool", "Tất cả công cụ": "All tools", "Khoảng thời gian": "Time range", "Hôm nay": "Today", "24 giờ": "24 hours", "7 ngày": "7 days", "30 ngày": "30 days", "Làm mới": "Refresh", "Đang tính…": "Calculating…", "Token theo giờ": "Tokens per hour", "Token theo ngày": "Tokens per day", "Lượt gần đây": "Recent calls", "Theo tài khoản": "By account", "Theo model": "By model", "Số liệu lấy từ đâu?": "Where does this data come from?", "Hạn mức chính thức (% đã dùng, giờ đặt lại): agy lấy từ lệnh /usage (chỉ đọc được tài khoản đang dùng), Codex từ lượt chạy gần nhất, Claude Code từ cùng nguồn với lệnh /usage (dùng token đăng nhập trên máy, chỉ gửi tới api.anthropic.com).": "Official quotas (% used, reset time): agy from its /usage command (only the active account can be read), Codex from its latest run, Claude Code from the same source as its /usage command (uses the login token on this machine, sent only to api.anthropic.com).", "Token = đầu vào + đầu ra + ghi cache; đọc cache ghi riêng vì rẻ hơn nhiều. Claude Code: đọc từ lịch sử phiên trên máy này, tính cả lúc dùng ngoài Nguyên Swap. agy và Codex: chỉ tính các lượt chạy qua Nguyên Swap. Giới hạn ngày / tuần theo token là con số bạn tự đặt để theo dõi (ví dụ 5M, 200K).": "Tokens = input + output + cache writes; cache reads are listed separately because they are much cheaper. Claude Code: read from session history on this machine, including use outside Nguyên Swap. agy and Codex: only runs made through Nguyên Swap. Daily / weekly token limits are numbers you set yourself for tracking (e.g. 5M, 200K).", "5 giờ": "5 hours", "Tuần": "Week", "Ngày": "Day", "5 giờ qua": "Last 5 hours", "7 ngày qua": "Last 7 days", "vừa xong": "just now", "{0} phút trước": "{0} min ago", "{0} giờ trước": "{0} h ago", "{0} ngày trước": "{0} d ago", "{0}n {1}g": "{0}d {1}h", "{0}g {1}p": "{0}h {1}m", "{0}p": "{0}m", "{0} ngày {1} giờ": "{0} days {1} h", "{0} giờ {1} phút": "{0} h {1} min", "{0} phút": "{0} min", "{0} · {1}: đã dùng {2}%": "{0} · {1}: {2}% used", " · đặt lại sau {0}": " · resets in {0}", "Hạn mức chính thức: {0}": "Official quota: {0}", "% đã dùng · cập nhật {0}": "% used · updated {0}", " · agy chỉ đọc được tài khoản đang dùng": " · agy can only read the active account", " · theo lượt chạy Codex gần nhất": " · from the latest Codex run", "Chưa có hạn mức: agy chỉ đọc được tài khoản đang dùng, sẽ cập nhật khi tài khoản này được dùng.": "No quota yet: agy can only read the active account; it updates when this account is used.", "Chưa có hạn mức: sẽ hiện sau lượt chạy Codex đầu tiên.": "No quota yet: it appears after the first Codex run.", "Đang tải hạn mức…": "Loading quota…", "dùng {0}": "used {0}", "{0} lượt": "{0} calls", "7 ngày theo model: {0}": "7 days by model: {0}", "Chưa có lượt nào trong 7 ngày qua.": "No calls in the last 7 days.", "Giới hạn tự đặt": "Custom limits", "Giới hạn tự đặt ✓": "Custom limits ✓", "Không có tài khoản nào.": "No accounts.", "Cập nhật {0}": "Updated {0}", "Cập nhật vừa xong": "Updated just now", "Khác": "Other", "Lượt gọi": "Calls", "Lượt": "Calls", "Token vào": "Input tokens", "Token ra": "Output tokens", "Ghi cache": "Cache writes", "Đọc cache": "Cache reads", "Chưa có lượt nào trong khoảng này.": "No calls in this range.", "Chưa có lượt nào.": "No calls yet.", "Lúc": "When", "Tài khoản · model": "Account · model", "Vào / Ra": "In / Out", "Tài khoản": "Account", "{0} token · {1} lượt": "{0} tokens · {1} calls", "Lần đầu xem 30 ngày có thể mất vài chục giây.": "The first 30-day view can take a few tens of seconds.", "Không tính được mức sử dụng: {0}": "Could not compute usage: {0}", "Giới hạn phải là số token, ví dụ 5M hoặc 200K.": "The limit must be a token count, e.g. 5M or 200K.", "Đã lưu giới hạn.": "Limit saved.", "Tất cả mô hình": "All models", "Antigravity CLI đang dùng": "Antigravity CLI in use", "Đang tải…": "Loading…", "Đang kiểm tra…": "Checking…", "Model chọn ở mỗi tài khoản được dùng khi chat và khi mở agy.": "The model chosen for each account is used for chat and when opening agy.", "Tải lại danh sách model agy": "Reload agy model list", "\"Mặc định\" là tài khoản đang đăng nhập sẵn trên máy (~/.claude, ~/.codex). Mỗi tài khoản thêm vào có thư mục cấu hình riêng, nên các tài khoản không ghi đè nhau.": "\"Default\" is the account already signed in on this machine (~/.claude, ~/.codex). Each added account has its own config folder, so accounts never overwrite each other.", "Kiểm tra lại": "Check again", "Mỗi cuộc trò chuyện được ghi thành một file .md trong": "Each conversation is saved as a .md file in", ", và một bản sao trong": ", and a copy in", "của mỗi thư mục project đã làm việc (có sẵn .gitignore để không bị commit). Khi đổi công cụ, tài khoản hoặc thư mục, phần lịch sử mà trợ lý mới chưa thấy được tự gửi kèm, để nó biết trước đó đã làm gì.": "of every project folder you worked in (with a .gitignore so it is not committed). When you switch tool, account or folder, the history the new assistant has not seen is sent along, so it knows what was done before.", "Mở thư mục lịch sử": "Open history folder", "Thêm tài khoản": "Add account", "Công cụ": "Tool", "Tên tài khoản, ví dụ: work": "Account name, e.g. work", "Đăng nhập tài khoản mới": "Sign in a new account", "Mở agy": "Open agy", "Thư mục project, ví dụ: C:\\Users\\nguye\\code\\myapp": "Project folder, e.g. C:\\Users\\you\\code\\myapp", "Tiếp tục cuộc trò chuyện gần nhất (--continue)": "Continue the latest conversation (--continue)", "Khi agy đang chạy, bấm vào tài khoản khác: công cụ sẽ đóng agy, chuyển tài khoản và mở lại agy ở thư mục này.": "While agy is running, click another account: the tool closes agy, switches accounts and reopens agy in this folder.", "Kiểm tra lịch sử khi đổi tài khoản agy": "Check history when switching agy accounts", "Đổi tên tài khoản": "Rename account", "Ví dụ: Công ty, Cá nhân": "E.g. Work, Personal", "Bỏ tên": "Clear name", "Hủy": "Cancel", "Lưu": "Save", "Đổi tên hiển thị": "Rename", "Đã đổi tên.": "Renamed.", "Đã bỏ tên.": "Name cleared.", "{0}. Tên này hiện ở mọi nơi thay cho \"{1}\".": "{0}. This name is shown everywhere instead of \"{1}\".", "Mặc định": "Default", "mặc định": "default", "model mặc định": "default model", "Model mặc định": "Default model", "Chưa đăng nhập": "Not signed in", "Không rõ trạng thái đăng nhập": "Sign-in status unknown", "Đã đăng nhập": "Signed in", " (chưa đăng nhập)": " (not signed in)", " (đang kiểm tra…)": " (checking…)", "Đang đăng nhập…": "Signing in…", "Đăng nhập": "Sign in", "Xóa": "Delete", "Hủy đăng nhập": "Cancel sign-in", "Chưa cài {0} trên máy này.": "{0} is not installed on this machine.", "Đang chờ đăng nhập {0} ({1}s)": "Waiting for sign-in {0} ({1}s)", "Đang chờ đăng nhập agy cho profile {0} ({1}s)": "Waiting for agy sign-in for profile {0} ({1}s)", "Một cửa sổ PowerShell sẽ chạy \"claude auth login\" với thư mục cấu hình riêng cho tài khoản này. Tài khoản Claude mặc định trên máy không bị ảnh hưởng.": "A PowerShell window will run \"claude auth login\" with a separate config folder for this account. The default Claude account on this machine is not affected.", "Một cửa sổ PowerShell sẽ chạy \"codex login\" với thư mục CODEX_HOME riêng (config.toml được chép từ ~/.codex). Tài khoản Codex mặc định không bị ảnh hưởng.": "A PowerShell window will run \"codex login\" with a separate CODEX_HOME (config.toml is copied from ~/.codex). The default Codex account is not affected.", "Một cửa sổ PowerShell sẽ chạy agy để bạn đăng nhập. Đăng nhập xong, tài khoản được lưu và dùng ngay.": "A PowerShell window will run agy so you can sign in. Once signed in, the account is saved and used right away.", "Không tìm thấy agy trong PATH. Sau khi bấm nút, hãy tự chạy agy trong PowerShell để đăng nhập.": "agy was not found in PATH. After clicking the button, run agy yourself in PowerShell to sign in.", "Nhập model khác…": "Enter another model…", "Nhập model ID, ví dụ: claude-opus-4-1 hoặc claude-opus-5-5[1m]": "Enter a model ID, e.g. claude-opus-4-1 or claude-opus-5-5[1m]", "Model ID chỉ gồm chữ, số và . _ : / [ ] -": "Model IDs may only contain letters, digits and . _ : / [ ] -", "Tài khoản mới sẽ hiện ở đây khi đăng nhập xong.": "The new account will show here once signed in.", "Tài khoản chưa rõ email": "Account with unknown email", "Tài khoản này chưa được lưu thành profile.": "This account has not been saved as a profile.", "Chọn một tài khoản bên dưới.": "Pick an account below.", "Thêm tài khoản đầu tiên ở bên dưới.": "Add your first account below.", "agy đang chạy. Bấm vào tài khoản khác để tự đóng agy, chuyển và mở lại ở thư mục project.": "agy is running. Click another account to close agy, switch, and reopen it in the project folder.", "Đóng tất cả agy": "Close all agy", "agy đang đăng nhập một tài khoản chưa được lưu. Lưu nó lại trước để không bị mất khi chuyển.": "agy is signed in to an account that is not saved. Save it first so it is not lost when switching.", "Tên profile, ví dụ: personal": "Profile name, e.g. personal", "Lưu tài khoản này": "Save this account", "không đọc được email": "email unreadable", "Đang dùng": "In use", "Chưa có tài khoản nào được lưu.": "No saved accounts yet.", "Mỗi bước có thể mất vài chục giây. Đừng mở agy trong lúc này.": "Each step can take a few tens of seconds. Do not open agy meanwhile.", "Cần ít nhất 2 tài khoản đã lưu, và đang dùng một trong số đó.": "Needs at least 2 saved accounts, with one of them in use.", "agy sẽ trả lời 3 câu hỏi ngắn trong một thư mục thử riêng (không đụng project của bạn), rồi tự trả về {0}. Tốn một ít hạn mức của cả hai tài khoản. agy phải đang tắt.": "agy will answer 3 short questions in a separate test folder (your projects are not touched), then switch back to {0}. Uses a little quota on both accounts. agy must be closed.", "So với {0}": "Compare with {0}", "Tài khoản để so sánh": "Account to compare", "Chạy kiểm tra": "Run check", "Xem agy đã trả lời gì": "See what agy answered", "Server đã tắt": "Server stopped", "Chạy lại": "Run", "khi cần. Bạn có thể đóng tab này.": "again when needed. You can close this tab.", "Phản hồi không hợp lệ từ server.": "Invalid response from server.", "Không kết nối được server: {0}": "Cannot reach the server: {0}", "Đã tải {0} model": "Loaded {0} models", "Xóa cuộc trò chuyện này khỏi Nguyên Swap?": "Delete this conversation from Nguyên Swap?", "Đã xóa cuộc trò chuyện": "Conversation deleted", "Đã dừng": "Stopped", "Đã hủy đăng nhập": "Sign-in cancelled", "Đã kiểm tra lại trạng thái đăng nhập": "Sign-in status rechecked", "Xóa tài khoản {0} \"{1}\"? Thư mục cấu hình và đăng nhập của nó sẽ bị xóa khỏi máy.": "Delete {0} account \"{1}\"? Its config folder and sign-in will be removed from this machine.", "Đã xóa {0} · {1}": "Deleted {0} · {1}", "Chọn thư mục project ở ô \"Làm việc trong\" trước.": "Pick a project folder in \"Work in\" first.", "Xóa toàn bộ lịch sử chat trong:\n{0}\\.ai-history ?\n\nBản trong thư mục lịch sử chung vẫn được giữ. Nếu chat tiếp trong project này, lịch sử sẽ được ghi lại từ đầu.": "Delete all chat history in:\n{0}\\.ai-history ?\n\nThe copy in the shared history folder is kept. If you keep chatting in this project, history is recorded again from scratch.", "Đã xóa {0} file lịch sử trong project": "Deleted {0} history files in the project", "Project này không có lịch sử để xóa": "This project has no history to delete", "Đã mở": "Opened", "Nhập thư mục project ở mục \"Mở agy\" để mở lại agy đúng chỗ.": "Enter a project folder under \"Open agy\" so agy reopens in the right place.", "agy đang chạy. Đóng agy, chuyển sang {0} rồi mở lại agy ở:\n{1}?": "agy is running. Close agy, switch to {0} and reopen agy in:\n{1}?", "Đã chuyển sang {0} và mở lại agy": "Switched to {0} and reopened agy", "Đã chuyển sang {0}": "Switched to {0}", "Nhập thư mục project trước.": "Enter a project folder first.", "Đã mở agy": "agy opened", "Bắt đầu kiểm tra": "Check started", "Xóa profile \"{0}\"? Token đã lưu của nó sẽ bị xóa khỏi máy.": "Delete profile \"{0}\"? Its saved token will be removed from this machine.", "Đã xóa": "Deleted", "Đóng tất cả cửa sổ agy đang chạy? Phiên làm việc chưa lưu trong agy sẽ bị ngắt.": "Close all running agy windows? Unsaved agy sessions will be interrupted.", "Đã đóng agy": "agy closed", "Nhập tên tài khoản trước.": "Enter an account name first.", "Nhập tên profile trước.": "Enter a profile name first.", "Đã lưu": "Saved", "Tắt server Nguyên Swap? Tài khoản đang dùng vẫn giữ nguyên.": "Stop the Nguyên Swap server? The active account stays as is.", "Toàn quyền: trợ lý được tự chạy mọi lệnh và sửa mọi file mà không hỏi lại. Chỉ dùng với thư mục bạn tin tưởng. Tiếp tục?": "Full access: the assistant may run any command and edit any file without asking. Only use it with folders you trust. Continue?", "Đã đặt model cho {0}": "Model set for {0}", "Tên profile chỉ gồm chữ, số, dấu - và _ (tối đa 40 ký tự).": "Profile names may only contain letters, digits, - and _ (max 40 characters).", "Tên model không hợp lệ.": "Invalid model name.", "Không tìm thấy agy. Đặt biến AGY_BIN trỏ tới agy.exe.": "agy not found. Set AGY_BIN to the path of agy.exe.", "Công cụ không hợp lệ.": "Invalid tool.", "Tài khoản này đang trả lời trong Chat.": "This account is answering in Chat.", "Tài khoản này đang đăng nhập. Hãy hủy trước.": "This account is signing in. Cancel it first.", "Đang có một lượt đăng nhập. Hãy đợi xong hoặc hủy trước.": "A sign-in is in progress. Wait for it or cancel it first.", "Không có lượt đăng nhập nào đang chạy.": "No sign-in is in progress.", "Chọn thư mục project để mở agy.": "Pick a project folder to open agy.", "Chọn hai tài khoản khác nhau.": "Pick two different accounts.", "Mã cuộc trò chuyện không hợp lệ.": "Invalid conversation id.", "Không tìm thấy cuộc trò chuyện này.": "Conversation not found.", "Đang chờ trả lời một tin nhắn. Hãy đợi xong rồi xóa.": "Waiting for a reply. Wait for it to finish, then delete.", "Cuộc trò chuyện này đang chờ trả lời.": "This conversation is waiting for a reply.", "Chọn trợ lý để chat.": "Pick an assistant to chat with.", "Python này không có tkinter. Hãy dán đường dẫn thư mục vào ô.": "This Python has no tkinter. Paste the folder path into the box.", "Hộp thoại chọn thư mục đang mở (có thể bị che sau trình duyệt).": "The folder picker is open (it may be behind the browser).", "Mức effort không hợp lệ.": "Invalid effort level.", "Thiếu cấu hình Bố / Con.": "Missing Parent / Child settings.", "Quyền của Con không hợp lệ.": "Invalid Child permission.", "Đang đăng nhập / kiểm tra agy ở mục Cài đặt nên chưa gọi được agy.": "agy is busy signing in / being checked in Settings, so it cannot be called yet.", "Nhập nội dung tin nhắn.": "Enter a message.", "Không tìm thấy file đính kèm. Hãy đính kèm lại.": "Attachment not found. Attach it again.", "Đang chờ trả lời tin nhắn trước. Hãy đợi xong hoặc bấm Dừng.": "Waiting for the previous reply. Wait for it or press Stop.", "Quyền không hợp lệ.": "Invalid permission.", "Cuộc trò chuyện này là cây task Bố–Con. Hãy gửi cho Bố.": "This conversation is a Parent–Child task tree. Send it to Parent.", "Cách làm không hợp lệ.": "Invalid workflow.", "Chưa có kế hoạch. Hãy gửi yêu cầu cho Bố trước.": "No plan yet. Send a request to Parent first.", "Không còn task nào cần làm.": "No tasks left to do.", "Đang làm việc trong cuộc trò chuyện này. Hãy đợi xong hoặc bấm Dừng.": "Work is running in this conversation. Wait for it or press Stop.", "Trạng thái task không hợp lệ.": "Invalid task status.", "Không tìm thấy task này.": "Task not found.", "Không có tin nhắn nào đang chờ.": "No message is waiting.", "Tài khoản không hợp lệ.": "Invalid account.", "Tên tối đa 40 ký tự.": "Names are at most 40 characters.", "Khoảng thời gian không hợp lệ.": "Invalid time range.", "Không đóng được agy. Hãy tự thoát nó rồi thử lại.": "Could not close agy. Quit it yourself and try again.", "agy chưa đăng nhập tài khoản nào.": "agy is not signed in to any account.", "Không tìm thấy agy để chạy kiểm tra. Đặt biến AGY_BIN trỏ tới agy.exe.": "agy not found for the check. Set AGY_BIN to the path of agy.exe.", "Chỉ lập kế hoạch (Bố) · không code, chốt thì xuất file .md": "Plan only (Parent) · no code, export a .md when final", "Chỉ lập kế hoạch (Con) · không code, chốt thì xuất file .md": "Plan only (Child) · no code, export a .md when final", "Chỉ lập kế hoạch (Bố)": "Plan only (Parent)", "Chỉ lập kế hoạch (Con)": "Plan only (Child)", "Kế hoạch · {0} bước": "Plan · {0} steps", "Chốt & xuất file .md": "Finalize & export .md", "Đã xuất kế hoạch:": "Plan exported:", "Mở file": "Open file", "Đã mở {0}": "Opened {0}", "Mô tả việc cần lập kế hoạch, hỏi hoặc trả lời câu hỏi… Chốt xong bấm \"Chốt & xuất file .md\" (Enter để gửi)": "Describe what to plan, ask or answer questions… When done, press \"Finalize & export .md\" (Enter to send)", "{0} chỉ lập kế hoạch (chỉ đọc, không sửa file) trong {1}. Chốt xong sẽ xuất file .md vào {1}\\plans.": "{0} only plans (read-only, no file changes) in {1}. When finalized, a .md file is exported to {1}\\plans.", "Chưa có file kế hoạch, hoặc file đã bị xóa.": "No plan file yet, or it was deleted.", "Chưa có kế hoạch. Hãy trao đổi với người lập kế hoạch trước.": "No plan yet. Talk to the planner first.", "Bố lập kế hoạch → bạn duyệt → Con làm (mỗi lần sửa kế hoạch cần duyệt lại)": "Parent plans → you approve → Child works (re-approve after every plan change)", "Bố lập kế hoạch → bạn duyệt → Con tự làm hết (câu hỏi giữa chừng Bố tự cập nhật)": "Parent plans → you approve → Child does everything (Parent handles mid-way questions)", "Duyệt & giao cho Con": "Approve & assign to Child", "Duyệt & giao cho Bố": "Approve & assign to Parent", "Kế hoạch chờ bạn duyệt": "Plan awaiting your approval", "Đọc kỹ các task bên dưới (đã mở sẵn chi tiết). Đúng ý thì bấm \"Duyệt & giao cho {0}\". Chưa đúng thì gõ góp ý rồi bấm \"Gửi cho Bố\" để Bố sửa. {0} chỉ bắt đầu sau khi bạn duyệt.": "Read the tasks below carefully (details are expanded). If it matches what you want, press \"Approve & assign to {0}\". If not, type your feedback and press \"Send to Parent\" so Parent revises it. {0} only starts after you approve.", "Mẫu trả lời đã được điền sẵn ở ô bên dưới: điền tiếp rồi bấm \"Gửi cho Bố\". Bố phân tích, cập nhật task cho rõ, rồi bạn duyệt lại kế hoạch.": "An answer template is filled in below: complete it, then press \"Send to Parent\". Parent analyses it and clarifies the tasks, then you approve the plan again.", "Bố ({0}) chỉ đọc và lập kế hoạch · Con ({1}) làm trong {2}, {3}, sau khi bạn duyệt kế hoạch.": "Parent ({0}) is read-only and plans · Child ({1}) works in {2}, {3}, after you approve the plan.", "Bố ({0}) chỉ đọc và lập kế hoạch · Con ({1}) làm trong {2}, {3}, sau khi bạn duyệt kế hoạch; câu hỏi giữa chừng Bố cập nhật rồi Con tự làm tiếp.": "Parent ({0}) is read-only and plans · Child ({1}) works in {2}, {3}, after you approve the plan; Parent handles mid-way questions and Child continues.", "Kế hoạch chưa được duyệt. Xem các task rồi bấm \"Duyệt & giao\", hoặc gửi góp ý cho Bố để sửa.": "The plan is not approved yet. Review the tasks and press \"Approve & assign\", or send feedback to Parent.", "{0} bước trước": "{0} earlier steps", "Model agy này đã gồm mức effort trong tên (High / Medium / Low), nên không chọn thêm effort.": "This agy model already includes the effort level in its name (High / Medium / Low), so no extra effort can be chosen.", "Mẹ check": "Reviewer", "Mẹ check: ": "Reviewer: ", "Không bật": "Off", "Mẹ check: ai kiểm tra kết quả": "Reviewer: who checks the result", "Model của Mẹ check": "Reviewer's model", "Effort của Mẹ check": "Reviewer's effort", "kiểm tra lại sau khi làm xong": "reviews the result when done", "Mẹ check ({0}) đang kiểm tra kết quả…": "Reviewer ({0}) is checking the result…", "Mẹ check đã kiểm tra xong.": "Reviewer finished checking.", "Số Con chạy song song": "Number of parallel Children", "Các task độc lập (không phụ thuộc nhau) được giao cho nhiều Con làm cùng lúc": "Independent tasks (no dependencies) are given to several Children at once", "1 Con (tuần tự)": "1 Child (sequential)", "2 Con song song": "2 Children in parallel", "3 Con song song": "3 Children in parallel", "4 Con song song": "4 Children in parallel", "Con {0} · task #{1}": "Child {0} · task #{1}", "{0} Con đang làm song song…": "{0} Children working in parallel…", "Làm sau task": "After task", "{0} Con song song": "{0} Children in parallel", "Số Con chạy song song không hợp lệ.": "Invalid number of parallel Children.", "Bố quyết định task nào độc lập (deps) và cho tối đa bao nhiêu Con chạy cùng lúc": "Parent decides which tasks are independent (deps) and how many Children may run at once", "Song song theo kế hoạch của Bố": "Parallel as planned by Parent", "Tuần tự (1 Con)": "Sequential (1 Child)", "Song song theo Bố": "Parallel per Parent", "Kế hoạch chưa có deps nên chạy tuần tự.": "The plan has no deps yet, so it runs sequentially.", "Bạn chọn chạy tuần tự (1 Con).": "You chose sequential (1 Child).", "Bố cho chạy tối đa {0} Con song song.": "Parent allows up to {0} Children in parallel.", "Sao chép": "Copy", "LỖI": "ERROR", "Đã sao chép.": "Copied."};
+const EN = {"Mục cài đặt": "Settings sections", "Tài khoản": "Accounts", "Chuyển sang máy khác": "Move to another machine", "Công cụ agy": "agy tools", "Lịch sử": "History", "Đã đăng nhập ở máy khác? Dùng tab": "Already signed in on another machine? Use the", "để nhập luôn, không cần đăng nhập lại.": "tab to import it without signing in again.", "Xuất đăng nhập (máy đang dùng)": "Export sign-ins (this machine)", "Chọn tài khoản và đặt mật khẩu: app tạo một chuỗi đã mã hóa để dán sang máy khác. Ai có cả chuỗi lẫn mật khẩu là dùng được các tài khoản này: giữ kín, gửi mật khẩu bằng đường khác với chuỗi.": "Pick accounts and set a password: the app creates an encrypted string to paste on another machine. Anyone with both the string and the password can use these accounts: keep them private and send the password separately from the string.", "Mật khẩu cho chuỗi (ít nhất 6 ký tự)": "Password for the string (at least 6 characters)", "Tạo chuỗi": "Create string", "Sao chép chuỗi": "Copy string", "Nhập đăng nhập (máy mới)": "Import sign-ins (new machine)", "Dán chuỗi NCTAI1:… từ máy kia": "Paste the NCTAI1:… string from the other machine", "Mật khẩu của chuỗi": "Password of the string", "Nhập tài khoản": "Import accounts", "Tài khoản đã có trên máy này (cùng email) thì được cập nhật; trùng tên với tài khoản khác thì thêm hậu tố -2, -3. Model và tên hiển thị đi kèm.": "Accounts already on this machine (same email) are updated; a name clash with a different account gets a -2, -3 suffix. Model and display name come along.", "Lưu ý: Claude Code và Codex tự đổi token định kỳ. Dùng cùng một tài khoản trên 2 máy cùng lúc thì đôi khi một máy bị đăng xuất: khi đó xuất lại từ máy còn chạy, hoặc đăng nhập riêng trên máy kia.": "Note: Claude Code and Codex rotate tokens periodically. Using one account on 2 machines at the same time can sometimes sign one of them out: then export again from the working machine, or sign in separately on the other one.", "Chưa có tài khoản nào đã đăng nhập để xuất.": "No signed-in accounts to export.", "{0} tài khoản · máy kia cần mật khẩu bạn vừa đặt": "{0} accounts · the other machine needs the password you just set", "Đã nhập {0} tài khoản:": "Imported {0} accounts:", "Đã nhập {0} tài khoản": "Imported {0} accounts", "đang dùng trên máy này, giữ nguyên": "in use on this machine, kept as is", "Bấm Ctrl+C để sao chép.": "Press Ctrl+C to copy.", "Chọn ít nhất một tài khoản để xuất.": "Pick at least one account to export.", "Đặt mật khẩu cho chuỗi (ít nhất 6 ký tự). Máy kia cần mật khẩu này để nhập.": "Set a password for the string (at least 6 characters). The other machine needs it to import.", "Sai mật khẩu, hoặc chuỗi bị sửa / thiếu.": "Wrong password, or the string was altered / truncated.", "Chuỗi không đúng định dạng (phải bắt đầu bằng NCTAI1:).": "Invalid string (it must start with NCTAI1:).", "Chuỗi bị lỗi hoặc bị cắt mất một phần.": "The string is broken or truncated.", "Chuỗi không có tài khoản nào nhập được.": "The string has no importable accounts.", "Bố cần bạn trả lời {0} câu hỏi trước khi duyệt": "Parent needs your answers to {0} questions before approval", "Trả lời hết một lần để Con làm một mạch, không phải dừng giữa chừng hỏi lại. Mẫu trả lời đã điền sẵn ở ô bên dưới: điền tiếp rồi bấm \"Gửi cho Bố\".": "Answer them all at once so Child can work straight through without stopping to ask. An answer template is filled in below: complete it and press \"Send to Parent\".", "Điền lại mẫu trả lời": "Refill answer template", "Bỏ qua câu hỏi, duyệt luôn": "Skip questions, approve anyway", "Trả lời các câu hỏi của Bố:": "Answers to Parent's questions:", "Trả lời:": "Answer:", "Duyệt kế hoạch khi Bố còn câu hỏi chưa trả lời? Con sẽ tự chọn cách hợp lý cho các điểm chưa rõ.": "Approve while Parent still has unanswered questions? Child will choose reasonable defaults for unclear points.", "Bố còn câu hỏi chưa được trả lời. Hãy trả lời cho Bố trước (hoặc bấm \"Bỏ qua câu hỏi, duyệt luôn\").": "Parent still has unanswered questions. Answer Parent first (or press \"Skip questions, approve anyway\").", "Kết quả dự kiến": "Expected result", "Bố chưa ghi kết quả dự kiến của kế hoạch. Nên gửi cho Bố: \"Bổ sung kết quả dự kiến\" trước khi duyệt.": "Parent has not stated the expected result of the plan. Send Parent: \"Add the expected results\" before approving.", "Cần xong trước": "Must finish first", "Task đang chọn": "Selected task", "Nối đuôi phía sau": "Follows after", "Task bên dưới phải chờ task nối phía trên xong (nét đứt: cũng chờ). Kéo thẻ sang trái / phải để đổi ưu tiên (trái = làm trước). Bấm một thẻ để xem chi tiết, Để cuối / Tạm hoãn.": "A task waits for the task linked above it (dashed: also waits). Drag cards left / right to change priority (left = first). Click a card for details, Run last / Hold.", "Bấm vào một task trên sơ đồ để xem chi tiết.": "Click a task in the diagram to see its details.", "Kéo để đổi độ rộng (bấm đúp: về mặc định)": "Drag to resize (double-click: reset)", "Cách xem kế hoạch": "Plan view", "Danh sách": "List", "Cây": "Tree", "Kéo ⠿ để đổi ưu tiên (trên = làm trước). Không kéo được task lên trước task nó phải chờ. Mở task để Để cuối / Tạm hoãn.": "Drag ⠿ to change priority (top = first). A task can't move above a task it waits for. Open a task to Run last / Hold.", "Kéo ⠿ để đổi ưu tiên (trên = làm trước). Task thụt vào phải chờ task phía trên nó xong. Mở task để Để cuối / Tạm hoãn.": "Drag ⠿ to change priority (top = first). Indented tasks wait for the task above them. Open a task to Run last / Hold.", "Kéo để đổi ưu tiên": "Drag to change priority", "để cuối": "run last", "tạm hoãn": "on hold", "chờ task hoãn": "waits for held task", "Cũng chờ task": "Also waits for task", "{0} task làm song song được": "{0} tasks can run in parallel", "Bỏ hoãn": "Release", "Để cuối": "Run last", "Tạm hoãn": "Hold", "Các task còn lại đang tạm hoãn. Bấm \"Bỏ hoãn\" ở task muốn chạy.": "The remaining tasks are on hold. Click \"Release\" on a task to run it.", "Bố ({0}) đang cập nhật kế hoạch theo câu trả lời của bạn…": "Parent ({0}) is updating the plan from your answer…", "Bố · cập nhật kế hoạch": "Parent · updating plan", "Thu gọn / mở danh sách trò chuyện": "Collapse / expand conversation list", "Mức sử dụng": "Usage", "Cài đặt": "Settings", "Tắt server": "Stop server", "Ngôn ngữ": "Language", "Cuộc trò chuyện mới": "New conversation", "Chưa có cuộc trò chuyện nào.": "No conversations yet.", "Xóa cuộc trò chuyện": "Delete conversation", "(trống)": "(empty)", "chat riêng": "private chat", "Cây task · {0}/{1} xong": "Task tree · {0}/{1} done", "Chế độ": "Mode", "Chat thường": "Chat", "Cây task Bố–Con": "Parent–Child tasks", "Thu gọn / mở phần cấu hình": "Collapse / expand settings", "Thu gọn ▴": "Collapse ▴", "Mở rộng ▾": "Expand ▾", "Bố": "Parent", "Con": "Child", "Bố làm": "Parent works", "Bố: ": "Parent: ", "Con: ": "Child: ", "Bố: ai lập kế hoạch": "Parent: who plans", "Model của Bố": "Parent's model", "Effort của Bố": "Parent's effort", "Mức suy nghĩ: cao hơn thì kỹ hơn nhưng chậm và tốn hạn mức hơn": "Thinking effort: higher is more thorough but slower and uses more quota", "Effort mặc định": "Default effort", "Effort: thấp": "Effort: low", "Effort: vừa": "Effort: medium", "Effort: cao": "Effort: high", "Effort: rất cao": "Effort: very high", "Effort: tối đa": "Effort: max", "chỉ đọc, lập kế hoạch": "read-only, plans", "lập kế hoạch rồi tự làm": "plans, then does the work", "Ai làm việc": "Who works", "Quyền": "Permission", "Chỉ đọc, trả lời": "Read-only, answer", "Được sửa file": "Can edit files", "Toàn quyền (chạy lệnh)": "Full access (run commands)", "Làm việc trong": "Work in", "Thư mục chat riêng (để trống), hoặc dán đường dẫn: C:\\code\\du-an": "Private chat folder (leave empty), or paste a path: C:\\code\\my-project", "Chọn…": "Browse…", "Cách làm": "Workflow", "Bố lập kế hoạch → bạn xác nhận → Con làm": "Parent plans → you confirm → Child works", "Bố lập kế hoạch → Con tự làm luôn": "Parent plans → Child works right away", "Bố lập kế hoạch và tự làm": "Parent plans and does the work", "Con lập kế hoạch và tự làm": "Child plans and does the work", "Bố lập kế hoạch, chờ xác nhận": "Parent plans, waits for confirmation", "Bố lập kế hoạch, Con tự làm": "Parent plans, Child works", "Bố lập kế hoạch và làm": "Parent plans and works", "Con lập kế hoạch và làm": "Child plans and works", "chỉ đọc và trả lời": "read-only, answers", "được sửa file": "can edit files", "toàn quyền, kể cả chạy lệnh": "full access, including running commands", "thư mục chat riêng": "the private chat folder", "Bố ({0}) lập kế hoạch rồi tự làm trong {1}, {2}.": "Parent ({0}) plans, then works in {1}, {2}.", "Con ({0}) lập kế hoạch rồi tự làm trong {1}, {2}.": "Child ({0}) plans, then works in {1}, {2}.", "Bố ({0}) chỉ đọc và lập kế hoạch · Con ({1}) làm trong {2}, {3}, sau khi bạn bấm \"Con bắt đầu làm\".": "Parent ({0}) is read-only and plans · Child ({1}) works in {2}, {3}, after you press \"Child starts\".", "Bố ({0}) chỉ đọc và lập kế hoạch · Con ({1}) làm trong {2}, {3}, tự làm ngay khi có kế hoạch.": "Parent ({0}) is read-only and plans · Child ({1}) works in {2}, {3}, as soon as there is a plan.", "{0} sẽ làm việc trong {1}, {2}.": "{0} will work in {1}, {2}.", "Kế hoạch": "Plan", "Kế hoạch · {0}/{1} xong": "Plan · {0}/{1} done", "Giao việc hoặc hỏi… (Enter để gửi, Shift+Enter để xuống dòng)": "Give a task or ask… (Enter to send, Shift+Enter for a new line)", "Trả lời câu hỏi của Con… Bố sẽ phân tích và cập nhật kế hoạch (Enter để gửi)": "Answer Child's question… Parent will analyse it and update the plan (Enter to send)", "Mô tả việc cần làm, hoặc góp ý kế hoạch… Bố sẽ chia thành các task chi tiết cho Con (Enter để gửi)": "Describe the work, or give feedback on the plan… Parent will split it into detailed tasks for Child (Enter to send)", "Đính kèm ảnh / file (có thể kéo thả hoặc dán ảnh bằng Ctrl+V)": "Attach images / files (drag and drop, or paste images with Ctrl+V)", "📎 Đính kèm": "📎 Attach", "lỗi": "error", "Mở file lịch sử chung của cuộc trò chuyện này": "Open this conversation's shared history file", "Lịch sử chung": "Shared history", "Xóa các file lịch sử chat trong .ai-history của thư mục đang chọn": "Delete the chat history files in .ai-history of the selected folder", "Xóa lịch sử trong project": "Clear project history", "Gửi": "Send", "Gửi cho Bố": "Send to Parent", "Dừng": "Stop", "Bố (model mạnh, chỉ đọc) phân tích yêu cầu và chia thành các task chi tiết. Con (model rẻ hơn) đọc và làm lần lượt từng task. Task nào cần bạn xác nhận thì Con dừng lại và hỏi: bạn trả lời cho Bố, Bố cập nhật kế hoạch, rồi Con làm tiếp. Mô tả việc cần làm rồi bấm \"Gửi cho Bố\".": "Parent (strong model, read-only) analyses the request and splits it into detailed tasks. Child (cheaper model) does the tasks one by one. When a task needs your confirmation, Child stops and asks: you answer Parent, Parent updates the plan, then Child continues. Describe the work, then press \"Send to Parent\".", "Chọn ai làm việc (một tài khoản Antigravity, Claude Code hoặc Codex), chọn model và thư mục làm việc, rồi nhắn việc cần làm. Các tin sau nối tiếp cùng phiên. Mỗi tin chạy ở chế độ không tương tác nên không thể hỏi lại bạn giữa chừng: muốn nó sửa code thì đặt quyền \"Được sửa file\".": "Pick who works (an Antigravity, Claude Code or Codex account), the model and the working folder, then describe the task. Later messages continue the same session. Each message runs non-interactively, so it cannot ask you anything mid-way: to let it change code, set the permission to \"Can edit files\".", "Chưa làm": "To do", "Con đang làm": "Child is working", "Xong": "Done", "Cần xác nhận": "Needs confirmation", "Bỏ qua": "Skip", "Làm lại": "Redo", "Con báo:": "Child reported:", "Con bắt đầu làm": "Child starts", "Con làm tiếp": "Child continues", "Bố bắt đầu làm": "Parent starts", "Bố làm tiếp": "Parent continues", "Chưa có task nào. Bố sẽ lập danh sách task khi trả lời.": "No tasks yet. Parent will create the task list when it replies.", "Con cần bạn xác nhận ở task #{0}:": "Child needs your confirmation on task #{0}:", "Mẫu trả lời đã được điền sẵn ở ô bên dưới: điền tiếp rồi bấm \"Gửi cho Bố\". Bố phân tích, cập nhật task cho rõ, rồi Con tự làm tiếp.": "An answer template is filled in below: complete it, then press \"Send to Parent\". Parent analyses it, clarifies the tasks, then Child continues automatically.", "Mẫu trả lời đã được điền sẵn ở ô bên dưới: điền tiếp rồi bấm \"Gửi cho Bố\". Bố phân tích, cập nhật task cho rõ, rồi bấm \"Con làm tiếp\".": "An answer template is filled in below: complete it, then press \"Send to Parent\". Parent analyses it and clarifies the tasks, then press \"Child continues\".", "Điền lại mẫu trả lời": "Refill answer template", "Trả lời câu hỏi của Con ở task #{0}": "Answer to Child's question on task #{0}", "(Danh sách task: xem bảng kế hoạch phía trên.)": "(Task list: see the plan panel.)", "Tổng kết sau khi Con làm": "Summary after Child worked", "Bố đã trả lời.": "Parent replied.", "Bố đã cập nhật kế hoạch: {0}/{1} task xong": "Parent updated the plan: {0}/{1} tasks done", "Con đã dừng: {0}/{1} task xong": "Child stopped: {0}/{1} tasks done", ". Xem kết quả và câu hỏi (nếu có) trong cuộc trò chuyện.": ". See the results and any questions in the conversation.", ". Đã xong toàn bộ kế hoạch.": ". The whole plan is done.", "Chọn trợ lý cho cả Bố và Con.": "Pick an assistant for both Parent and Child.", "Tối đa 10 file mỗi tin nhắn.": "At most 10 files per message.", "{0}: quá lớn (tối đa 25 MB).": "{0}: too large (max 25 MB).", "Đợi tải file lên xong rồi gửi.": "Wait for the uploads to finish, then send.", "Xem file đính kèm.": "See the attached files.", "Chưa có ai để chat: thêm tài khoản agy, hoặc cài Claude Code / Codex.": "No one to chat with: add an agy account, or install Claude Code / Codex.", "Hạn mức": "Quotas", "Thống kê": "Statistics", "Lọc theo công cụ": "Filter by tool", "Tất cả công cụ": "All tools", "Khoảng thời gian": "Time range", "Hôm nay": "Today", "24 giờ": "24 hours", "7 ngày": "7 days", "30 ngày": "30 days", "Làm mới": "Refresh", "Đang tính…": "Calculating…", "Token theo giờ": "Tokens per hour", "Token theo ngày": "Tokens per day", "Lượt gần đây": "Recent calls", "Theo tài khoản": "By account", "Theo model": "By model", "Số liệu lấy từ đâu?": "Where does this data come from?", "Hạn mức chính thức (% đã dùng, giờ đặt lại): agy lấy từ lệnh /usage (chỉ đọc được tài khoản đang dùng), Codex từ lượt chạy gần nhất, Claude Code từ cùng nguồn với lệnh /usage (dùng token đăng nhập trên máy, chỉ gửi tới api.anthropic.com).": "Official quotas (% used, reset time): agy from its /usage command (only the active account can be read), Codex from its latest run, Claude Code from the same source as its /usage command (uses the login token on this machine, sent only to api.anthropic.com).", "Token = đầu vào + đầu ra + ghi cache; đọc cache ghi riêng vì rẻ hơn nhiều. Claude Code: đọc từ lịch sử phiên trên máy này, tính cả lúc dùng ngoài Nguyên Swap. agy và Codex: chỉ tính các lượt chạy qua Nguyên Swap. Giới hạn ngày / tuần theo token là con số bạn tự đặt để theo dõi (ví dụ 5M, 200K).": "Tokens = input + output + cache writes; cache reads are listed separately because they are much cheaper. Claude Code: read from session history on this machine, including use outside Nguyên Swap. agy and Codex: only runs made through Nguyên Swap. Daily / weekly token limits are numbers you set yourself for tracking (e.g. 5M, 200K).", "5 giờ": "5 hours", "Tuần": "Week", "Ngày": "Day", "5 giờ qua": "Last 5 hours", "7 ngày qua": "Last 7 days", "vừa xong": "just now", "{0} phút trước": "{0} min ago", "{0} giờ trước": "{0} h ago", "{0} ngày trước": "{0} d ago", "{0}n {1}g": "{0}d {1}h", "{0}g {1}p": "{0}h {1}m", "{0}p": "{0}m", "{0} ngày {1} giờ": "{0} days {1} h", "{0} giờ {1} phút": "{0} h {1} min", "{0} phút": "{0} min", "{0} · {1}: đã dùng {2}%": "{0} · {1}: {2}% used", " · đặt lại sau {0}": " · resets in {0}", "Hạn mức chính thức: {0}": "Official quota: {0}", "% đã dùng · cập nhật {0}": "% used · updated {0}", " · agy chỉ đọc được tài khoản đang dùng": " · agy can only read the active account", " · theo lượt chạy Codex gần nhất": " · from the latest Codex run", "Chưa có hạn mức: agy chỉ đọc được tài khoản đang dùng, sẽ cập nhật khi tài khoản này được dùng.": "No quota yet: agy can only read the active account; it updates when this account is used.", "Chưa có hạn mức: sẽ hiện sau lượt chạy Codex đầu tiên.": "No quota yet: it appears after the first Codex run.", "Đang tải hạn mức…": "Loading quota…", "dùng {0}": "used {0}", "{0} lượt": "{0} calls", "7 ngày theo model: {0}": "7 days by model: {0}", "Chưa có lượt nào trong 7 ngày qua.": "No calls in the last 7 days.", "Giới hạn tự đặt": "Custom limits", "Giới hạn tự đặt ✓": "Custom limits ✓", "Không có tài khoản nào.": "No accounts.", "Cập nhật {0}": "Updated {0}", "Cập nhật vừa xong": "Updated just now", "Khác": "Other", "Lượt gọi": "Calls", "Lượt": "Calls", "Token vào": "Input tokens", "Token ra": "Output tokens", "Ghi cache": "Cache writes", "Đọc cache": "Cache reads", "Chưa có lượt nào trong khoảng này.": "No calls in this range.", "Chưa có lượt nào.": "No calls yet.", "Lúc": "When", "Tài khoản · model": "Account · model", "Vào / Ra": "In / Out", "Tài khoản": "Account", "{0} token · {1} lượt": "{0} tokens · {1} calls", "Lần đầu xem 30 ngày có thể mất vài chục giây.": "The first 30-day view can take a few tens of seconds.", "Không tính được mức sử dụng: {0}": "Could not compute usage: {0}", "Giới hạn phải là số token, ví dụ 5M hoặc 200K.": "The limit must be a token count, e.g. 5M or 200K.", "Đã lưu giới hạn.": "Limit saved.", "Tất cả mô hình": "All models", "Antigravity CLI đang dùng": "Antigravity CLI in use", "Đang tải…": "Loading…", "Đang kiểm tra…": "Checking…", "Model chọn ở mỗi tài khoản được dùng khi chat và khi mở agy.": "The model chosen for each account is used for chat and when opening agy.", "Tải lại danh sách model agy": "Reload agy model list", "\"Mặc định\" là tài khoản đang đăng nhập sẵn trên máy (~/.claude, ~/.codex). Mỗi tài khoản thêm vào có thư mục cấu hình riêng, nên các tài khoản không ghi đè nhau.": "\"Default\" is the account already signed in on this machine (~/.claude, ~/.codex). Each added account has its own config folder, so accounts never overwrite each other.", "Kiểm tra lại": "Check again", "Mỗi cuộc trò chuyện được ghi thành một file .md trong": "Each conversation is saved as a .md file in", ", và một bản sao trong": ", and a copy in", "của mỗi thư mục project đã làm việc (có sẵn .gitignore để không bị commit). Khi đổi công cụ, tài khoản hoặc thư mục, phần lịch sử mà trợ lý mới chưa thấy được tự gửi kèm, để nó biết trước đó đã làm gì.": "of every project folder you worked in (with a .gitignore so it is not committed). When you switch tool, account or folder, the history the new assistant has not seen is sent along, so it knows what was done before.", "Mở thư mục lịch sử": "Open history folder", "Thêm tài khoản": "Add account", "Công cụ": "Tool", "Tên tài khoản, ví dụ: work": "Account name, e.g. work", "Đăng nhập tài khoản mới": "Sign in a new account", "Mở agy": "Open agy", "Thư mục project, ví dụ: C:\\Users\\nguye\\code\\myapp": "Project folder, e.g. C:\\Users\\you\\code\\myapp", "Tiếp tục cuộc trò chuyện gần nhất (--continue)": "Continue the latest conversation (--continue)", "Khi agy đang chạy, bấm vào tài khoản khác: công cụ sẽ đóng agy, chuyển tài khoản và mở lại agy ở thư mục này.": "While agy is running, click another account: the tool closes agy, switches accounts and reopens agy in this folder.", "Kiểm tra lịch sử khi đổi tài khoản agy": "Check history when switching agy accounts", "Đổi tên tài khoản": "Rename account", "Ví dụ: Công ty, Cá nhân": "E.g. Work, Personal", "Bỏ tên": "Clear name", "Hủy": "Cancel", "Lưu": "Save", "Đổi tên hiển thị": "Rename", "Đã đổi tên.": "Renamed.", "Đã bỏ tên.": "Name cleared.", "{0}. Tên này hiện ở mọi nơi thay cho \"{1}\".": "{0}. This name is shown everywhere instead of \"{1}\".", "Mặc định": "Default", "mặc định": "default", "model mặc định": "default model", "Model mặc định": "Default model", "Chưa đăng nhập": "Not signed in", "Không rõ trạng thái đăng nhập": "Sign-in status unknown", "Đã đăng nhập": "Signed in", " (chưa đăng nhập)": " (not signed in)", " (đang kiểm tra…)": " (checking…)", "Đang đăng nhập…": "Signing in…", "Đăng nhập": "Sign in", "Xóa": "Delete", "Hủy đăng nhập": "Cancel sign-in", "Chưa cài {0} trên máy này.": "{0} is not installed on this machine.", "Đang chờ đăng nhập {0} ({1}s)": "Waiting for sign-in {0} ({1}s)", "Đang chờ đăng nhập agy cho profile {0} ({1}s)": "Waiting for agy sign-in for profile {0} ({1}s)", "Một cửa sổ PowerShell sẽ chạy Claude Code với thư mục cấu hình riêng cho tài khoản này: làm theo bước đăng nhập (nếu không tự hiện, gõ /login). Tài khoản Claude mặc định trên máy không bị ảnh hưởng.": "A PowerShell window will run Claude Code with a separate config folder for this account: follow the sign-in steps (type /login if they do not appear). The default Claude account on this machine is not affected.", "Một cửa sổ PowerShell sẽ chạy \"codex login\" với thư mục CODEX_HOME riêng (config.toml được chép từ ~/.codex). Tài khoản Codex mặc định không bị ảnh hưởng.": "A PowerShell window will run \"codex login\" with a separate CODEX_HOME (config.toml is copied from ~/.codex). The default Codex account is not affected.", "Một cửa sổ PowerShell sẽ chạy agy để bạn đăng nhập. Đăng nhập xong, tài khoản được lưu và dùng ngay.": "A PowerShell window will run agy so you can sign in. Once signed in, the account is saved and used right away.", "Không tìm thấy agy trong PATH. Sau khi bấm nút, hãy tự chạy agy trong PowerShell để đăng nhập.": "agy was not found in PATH. After clicking the button, run agy yourself in PowerShell to sign in.", "Nhập model khác…": "Enter another model…", "Nhập model ID, ví dụ: claude-opus-4-1 hoặc claude-opus-5-5[1m]": "Enter a model ID, e.g. claude-opus-4-1 or claude-opus-5-5[1m]", "Model ID chỉ gồm chữ, số và . _ : / [ ] -": "Model IDs may only contain letters, digits and . _ : / [ ] -", "Tài khoản mới sẽ hiện ở đây khi đăng nhập xong.": "The new account will show here once signed in.", "Tài khoản chưa rõ email": "Account with unknown email", "Tài khoản này chưa được lưu thành profile.": "This account has not been saved as a profile.", "Chọn một tài khoản bên dưới.": "Pick an account below.", "Thêm tài khoản đầu tiên ở bên dưới.": "Add your first account below.", "agy đang chạy. Bấm vào tài khoản khác để tự đóng agy, chuyển và mở lại ở thư mục project.": "agy is running. Click another account to close agy, switch, and reopen it in the project folder.", "Đóng tất cả agy": "Close all agy", "agy đang đăng nhập một tài khoản chưa được lưu. Lưu nó lại trước để không bị mất khi chuyển.": "agy is signed in to an account that is not saved. Save it first so it is not lost when switching.", "Tên profile, ví dụ: personal": "Profile name, e.g. personal", "Lưu tài khoản này": "Save this account", "không đọc được email": "email unreadable", "Đang dùng": "In use", "Chưa có tài khoản nào được lưu.": "No saved accounts yet.", "Mỗi bước có thể mất vài chục giây. Đừng mở agy trong lúc này.": "Each step can take a few tens of seconds. Do not open agy meanwhile.", "Cần ít nhất 2 tài khoản đã lưu, và đang dùng một trong số đó.": "Needs at least 2 saved accounts, with one of them in use.", "agy sẽ trả lời 3 câu hỏi ngắn trong một thư mục thử riêng (không đụng project của bạn), rồi tự trả về {0}. Tốn một ít hạn mức của cả hai tài khoản. agy phải đang tắt.": "agy will answer 3 short questions in a separate test folder (your projects are not touched), then switch back to {0}. Uses a little quota on both accounts. agy must be closed.", "So với {0}": "Compare with {0}", "Tài khoản để so sánh": "Account to compare", "Chạy kiểm tra": "Run check", "Xem agy đã trả lời gì": "See what agy answered", "Server đã tắt": "Server stopped", "Chạy lại": "Run", "khi cần. Bạn có thể đóng tab này.": "again when needed. You can close this tab.", "Phản hồi không hợp lệ từ server.": "Invalid response from server.", "Không kết nối được server: {0}": "Cannot reach the server: {0}", "Đã tải {0} model": "Loaded {0} models", "Xóa cuộc trò chuyện này khỏi Nguyên Swap?": "Delete this conversation from Nguyên Swap?", "Đã xóa cuộc trò chuyện": "Conversation deleted", "Đã dừng": "Stopped", "Đã hủy đăng nhập": "Sign-in cancelled", "Đã kiểm tra lại trạng thái đăng nhập": "Sign-in status rechecked", "Xóa tài khoản {0} \"{1}\"? Thư mục cấu hình và đăng nhập của nó sẽ bị xóa khỏi máy.": "Delete {0} account \"{1}\"? Its config folder and sign-in will be removed from this machine.", "Đã xóa {0} · {1}": "Deleted {0} · {1}", "Chọn thư mục project ở ô \"Làm việc trong\" trước.": "Pick a project folder in \"Work in\" first.", "Xóa toàn bộ lịch sử chat trong:\n{0}\\.ai-history ?\n\nBản trong thư mục lịch sử chung vẫn được giữ. Nếu chat tiếp trong project này, lịch sử sẽ được ghi lại từ đầu.": "Delete all chat history in:\n{0}\\.ai-history ?\n\nThe copy in the shared history folder is kept. If you keep chatting in this project, history is recorded again from scratch.", "Đã xóa {0} file lịch sử trong project": "Deleted {0} history files in the project", "Project này không có lịch sử để xóa": "This project has no history to delete", "Đã mở": "Opened", "Nhập thư mục project ở mục \"Mở agy\" để mở lại agy đúng chỗ.": "Enter a project folder under \"Open agy\" so agy reopens in the right place.", "agy đang chạy. Đóng agy, chuyển sang {0} rồi mở lại agy ở:\n{1}?": "agy is running. Close agy, switch to {0} and reopen agy in:\n{1}?", "Đã chuyển sang {0} và mở lại agy": "Switched to {0} and reopened agy", "Đã chuyển sang {0}": "Switched to {0}", "Nhập thư mục project trước.": "Enter a project folder first.", "Đã mở agy": "agy opened", "Bắt đầu kiểm tra": "Check started", "Xóa profile \"{0}\"? Token đã lưu của nó sẽ bị xóa khỏi máy.": "Delete profile \"{0}\"? Its saved token will be removed from this machine.", "Đã xóa": "Deleted", "Đóng tất cả cửa sổ agy đang chạy? Phiên làm việc chưa lưu trong agy sẽ bị ngắt.": "Close all running agy windows? Unsaved agy sessions will be interrupted.", "Đã đóng agy": "agy closed", "Nhập tên tài khoản trước.": "Enter an account name first.", "Nhập tên profile trước.": "Enter a profile name first.", "Đã lưu": "Saved", "Tắt server Nguyên Swap? Tài khoản đang dùng vẫn giữ nguyên.": "Stop the Nguyên Swap server? The active account stays as is.", "Toàn quyền: trợ lý được tự chạy mọi lệnh và sửa mọi file mà không hỏi lại. Chỉ dùng với thư mục bạn tin tưởng. Tiếp tục?": "Full access: the assistant may run any command and edit any file without asking. Only use it with folders you trust. Continue?", "Đã đặt model cho {0}": "Model set for {0}", "Tên profile chỉ gồm chữ, số, dấu - và _ (tối đa 40 ký tự).": "Profile names may only contain letters, digits, - and _ (max 40 characters).", "Tên model không hợp lệ.": "Invalid model name.", "Không tìm thấy agy. Đặt biến AGY_BIN trỏ tới agy.exe.": "agy not found. Set AGY_BIN to the path of agy.exe.", "Công cụ không hợp lệ.": "Invalid tool.", "Tài khoản này đang trả lời trong Chat.": "This account is answering in Chat.", "Tài khoản này đang đăng nhập. Hãy hủy trước.": "This account is signing in. Cancel it first.", "Đang có một lượt đăng nhập. Hãy đợi xong hoặc hủy trước.": "A sign-in is in progress. Wait for it or cancel it first.", "Không có lượt đăng nhập nào đang chạy.": "No sign-in is in progress.", "Chọn thư mục project để mở agy.": "Pick a project folder to open agy.", "Chọn hai tài khoản khác nhau.": "Pick two different accounts.", "Mã cuộc trò chuyện không hợp lệ.": "Invalid conversation id.", "Không tìm thấy cuộc trò chuyện này.": "Conversation not found.", "Đang chờ trả lời một tin nhắn. Hãy đợi xong rồi xóa.": "Waiting for a reply. Wait for it to finish, then delete.", "Cuộc trò chuyện này đang chờ trả lời.": "This conversation is waiting for a reply.", "Chọn trợ lý để chat.": "Pick an assistant to chat with.", "Python này không có tkinter. Hãy dán đường dẫn thư mục vào ô.": "This Python has no tkinter. Paste the folder path into the box.", "Hộp thoại chọn thư mục đang mở (có thể bị che sau trình duyệt).": "The folder picker is open (it may be behind the browser).", "Mức effort không hợp lệ.": "Invalid effort level.", "Thiếu cấu hình Bố / Con.": "Missing Parent / Child settings.", "Quyền của Con không hợp lệ.": "Invalid Child permission.", "Đang đăng nhập / kiểm tra agy ở mục Cài đặt nên chưa gọi được agy.": "agy is busy signing in / being checked in Settings, so it cannot be called yet.", "Nhập nội dung tin nhắn.": "Enter a message.", "Không tìm thấy file đính kèm. Hãy đính kèm lại.": "Attachment not found. Attach it again.", "Đang chờ trả lời tin nhắn trước. Hãy đợi xong hoặc bấm Dừng.": "Waiting for the previous reply. Wait for it or press Stop.", "Quyền không hợp lệ.": "Invalid permission.", "Cuộc trò chuyện này là cây task Bố–Con. Hãy gửi cho Bố.": "This conversation is a Parent–Child task tree. Send it to Parent.", "Cách làm không hợp lệ.": "Invalid workflow.", "Chưa có kế hoạch. Hãy gửi yêu cầu cho Bố trước.": "No plan yet. Send a request to Parent first.", "Không còn task nào cần làm.": "No tasks left to do.", "Đang làm việc trong cuộc trò chuyện này. Hãy đợi xong hoặc bấm Dừng.": "Work is running in this conversation. Wait for it or press Stop.", "Trạng thái task không hợp lệ.": "Invalid task status.", "Không tìm thấy task này.": "Task not found.", "Không có tin nhắn nào đang chờ.": "No message is waiting.", "Tài khoản không hợp lệ.": "Invalid account.", "Tên tối đa 40 ký tự.": "Names are at most 40 characters.", "Khoảng thời gian không hợp lệ.": "Invalid time range.", "Không đóng được agy. Hãy tự thoát nó rồi thử lại.": "Could not close agy. Quit it yourself and try again.", "agy chưa đăng nhập tài khoản nào.": "agy is not signed in to any account.", "Không tìm thấy agy để chạy kiểm tra. Đặt biến AGY_BIN trỏ tới agy.exe.": "agy not found for the check. Set AGY_BIN to the path of agy.exe.", "Chỉ lập kế hoạch (Bố) · không code, chốt thì xuất file .md": "Plan only (Parent) · no code, export a .md when final", "Chỉ lập kế hoạch (Con) · không code, chốt thì xuất file .md": "Plan only (Child) · no code, export a .md when final", "Chỉ lập kế hoạch (Bố)": "Plan only (Parent)", "Chỉ lập kế hoạch (Con)": "Plan only (Child)", "Kế hoạch · {0} bước": "Plan · {0} steps", "Chốt & xuất file .md": "Finalize & export .md", "Đã xuất kế hoạch:": "Plan exported:", "Mở file": "Open file", "Đã mở {0}": "Opened {0}", "Mô tả việc cần lập kế hoạch, hỏi hoặc trả lời câu hỏi… Chốt xong bấm \"Chốt & xuất file .md\" (Enter để gửi)": "Describe what to plan, ask or answer questions… When done, press \"Finalize & export .md\" (Enter to send)", "{0} chỉ lập kế hoạch (chỉ đọc, không sửa file) trong {1}. Chốt xong sẽ xuất file .md vào {1}\\plans.": "{0} only plans (read-only, no file changes) in {1}. When finalized, a .md file is exported to {1}\\plans.", "Chưa có file kế hoạch, hoặc file đã bị xóa.": "No plan file yet, or it was deleted.", "Chưa có kế hoạch. Hãy trao đổi với người lập kế hoạch trước.": "No plan yet. Talk to the planner first.", "Bố lập kế hoạch → bạn duyệt → Con làm (mỗi lần sửa kế hoạch cần duyệt lại)": "Parent plans → you approve → Child works (re-approve after every plan change)", "Bố lập kế hoạch → bạn duyệt → Con tự làm hết (câu hỏi giữa chừng Bố tự cập nhật)": "Parent plans → you approve → Child does everything (Parent handles mid-way questions)", "Duyệt & giao cho Con": "Approve & assign to Child", "Duyệt & giao cho Bố": "Approve & assign to Parent", "Kế hoạch chờ bạn duyệt": "Plan awaiting your approval", "Đọc kỹ các task bên dưới (đã mở sẵn chi tiết). Đúng ý thì bấm \"Duyệt & giao cho {0}\". Chưa đúng thì gõ góp ý rồi bấm \"Gửi cho Bố\" để Bố sửa. {0} chỉ bắt đầu sau khi bạn duyệt.": "Read the tasks below carefully (details are expanded). If it matches what you want, press \"Approve & assign to {0}\". If not, type your feedback and press \"Send to Parent\" so Parent revises it. {0} only starts after you approve.", "Mẫu trả lời đã được điền sẵn ở ô bên dưới: điền tiếp rồi bấm \"Gửi cho Bố\". Bố phân tích, cập nhật task cho rõ, rồi bạn duyệt lại kế hoạch.": "An answer template is filled in below: complete it, then press \"Send to Parent\". Parent analyses it and clarifies the tasks, then you approve the plan again.", "Bố ({0}) chỉ đọc và lập kế hoạch · Con ({1}) làm trong {2}, {3}, sau khi bạn duyệt kế hoạch.": "Parent ({0}) is read-only and plans · Child ({1}) works in {2}, {3}, after you approve the plan.", "Bố ({0}) chỉ đọc và lập kế hoạch · Con ({1}) làm trong {2}, {3}, sau khi bạn duyệt kế hoạch; câu hỏi giữa chừng Bố cập nhật rồi Con tự làm tiếp.": "Parent ({0}) is read-only and plans · Child ({1}) works in {2}, {3}, after you approve the plan; Parent handles mid-way questions and Child continues.", "Kế hoạch chưa được duyệt. Xem các task rồi bấm \"Duyệt & giao\", hoặc gửi góp ý cho Bố để sửa.": "The plan is not approved yet. Review the tasks and press \"Approve & assign\", or send feedback to Parent.", "{0} bước trước": "{0} earlier steps", "Model agy này đã gồm mức effort trong tên (High / Medium / Low) hoặc agy cố định effort cho nó, nên không chọn thêm effort.": "This agy model already includes the effort level in its name (High / Medium / Low) or agy fixes its effort, so no extra effort can be chosen.", "Mẹ check": "Reviewer", "Mẹ check: ": "Reviewer: ", "Không bật": "Off", "Mẹ check: ai kiểm tra kết quả": "Reviewer: who checks the result", "Model của Mẹ check": "Reviewer's model", "Effort của Mẹ check": "Reviewer's effort", "kiểm tra lại sau khi làm xong": "reviews the result when done", "Mẹ check ({0}) đang kiểm tra kết quả…": "Reviewer ({0}) is checking the result…", "Mẹ check đã kiểm tra xong.": "Reviewer finished checking.", "Số Con chạy song song": "Number of parallel Children", "Các task độc lập (không phụ thuộc nhau) được giao cho nhiều Con làm cùng lúc": "Independent tasks (no dependencies) are given to several Children at once", "1 Con (tuần tự)": "1 Child (sequential)", "2 Con song song": "2 Children in parallel", "3 Con song song": "3 Children in parallel", "4 Con song song": "4 Children in parallel", "Con {0} · task #{1}": "Child {0} · task #{1}", "{0} Con đang làm song song…": "{0} Children working in parallel…", "Làm sau task": "After task", "{0} Con song song": "{0} Children in parallel", "Số Con chạy song song không hợp lệ.": "Invalid number of parallel Children.", "Bố quyết định task nào độc lập (deps) và cho tối đa bao nhiêu Con chạy cùng lúc": "Parent decides which tasks are independent (deps) and how many Children may run at once", "Song song theo kế hoạch của Bố": "Parallel as planned by Parent", "Tuần tự (1 Con)": "Sequential (1 Child)", "Song song theo Bố": "Parallel per Parent", "Kế hoạch chưa có deps nên chạy tuần tự.": "The plan has no deps yet, so it runs sequentially.", "Bạn chọn chạy tuần tự (1 Con).": "You chose sequential (1 Child).", "Bố cho chạy tối đa {0} Con song song.": "Parent allows up to {0} Children in parallel.", "Sao chép": "Copy", "LỖI": "ERROR", "Đã sao chép.": "Copied."};
 const ENP = [  // lỗi từ server có biến
   [/^Không có profile '(.+)'\.$/, "No profile '$1'."],
   [/^Không tìm thấy thư mục: (.+)$/, 'Folder not found: $1'],
@@ -3798,7 +4324,7 @@ function toolLoginPanel() {
 }
 
 const LOGIN_HINT = {
-  claude: 'Một cửa sổ PowerShell sẽ chạy "claude auth login" với thư mục cấu hình riêng cho tài khoản này. Tài khoản Claude mặc định trên máy không bị ảnh hưởng.',
+  claude: 'Một cửa sổ PowerShell sẽ chạy Claude Code với thư mục cấu hình riêng cho tài khoản này: làm theo bước đăng nhập (nếu không tự hiện, gõ /login). Tài khoản Claude mặc định trên máy không bị ảnh hưởng.',
   codex: 'Một cửa sổ PowerShell sẽ chạy "codex login" với thư mục CODEX_HOME riêng (config.toml được chép từ ~/.codex). Tài khoản Codex mặc định không bị ảnh hưởng.',
 };
 
@@ -4068,6 +4594,182 @@ function taskButtons(t) {
   return t.status === 'todo' ? b('skipped', 'Bỏ qua') : '';
 }
 
+function holdButtons(k) {
+  if (k.status !== 'todo') return '';
+  const b = (hold, label) => `<button class="small" data-hold-task="${k.id}" data-hold="${hold}">${t(label)}</button>`;
+  return `<div class="acts">${k.hold ? b('', 'Bỏ hoãn') : b('last', 'Để cuối') + b('manual', 'Tạm hoãn')}</div>`;
+}
+
+// Cây task: task không chờ ai nằm ở gốc; task phải chờ task khác nằm dưới task nó chờ (nếu chờ nhiều task
+// thì dưới task ở tầng sâu nhất, các task chờ còn lại vẽ bằng đường nét đứt). Các task cùng nhánh làm song song được; thứ tự trong danh sách là độ ưu tiên.
+function taskTree(ts) {
+  const pos = new Map(ts.map((k, i) => [k.id, i])), parent = new Map(), kids = new Map(), roots = [];
+  const byId = new Map(ts.map(k => [k.id, k])), lv = new Map();
+  const level = (id, seen = new Set()) => {  // tầng = đường deps dài nhất từ gốc
+    if (lv.has(id)) return lv.get(id);
+    if (seen.has(id)) return 0;
+    seen.add(id);
+    const ds = (byId.get(id).deps || []).filter(d => pos.has(d) && d !== id);
+    const v = ds.length ? 1 + Math.max(...ds.map(d => level(d, seen))) : 0;
+    lv.set(id, v);
+    return v;
+  };
+  for (const k of ts) {
+    const ds = (k.deps || []).filter(d => pos.has(d) && d !== k.id);
+    parent.set(k.id, ds.length ? ds.reduce((a, b) => level(a) > level(b) || (level(a) === level(b) && pos.get(a) > pos.get(b)) ? a : b) : null);
+  }
+  for (const k of ts) {  // vòng deps (kế hoạch lỗi): đưa task lên gốc để vẫn hiện đủ
+    let p = parent.get(k.id), n = 0;
+    while (p != null && p !== k.id && n++ < ts.length) p = parent.get(p);
+    if (p === k.id) parent.set(k.id, null);
+  }
+  for (const k of ts) {
+    const p = parent.get(k.id);
+    if (p == null) roots.push(k); else { if (!kids.has(p)) kids.set(p, []); kids.get(p).push(k); }
+  }
+  return { roots, kids, parent, deps: ts.some(k => 'deps' in k) };
+}
+
+function chainOf(ts, id) {
+  const byId = new Map(ts.map(k => [k.id, k])), up = new Set(), down = new Set();
+  const goUp = i => (byId.get(i).deps || []).forEach(d => {
+    if (byId.has(d) && d !== id && !up.has(d)) { up.add(d); goUp(d); }
+  });
+  const goDown = i => ts.forEach(k => {
+    if ((k.deps || []).includes(i) && k.id !== id && !down.has(k.id)) { down.add(k.id); goDown(k.id); }
+  });
+  if (byId.has(id)) { goUp(id); goDown(id); }
+  return { up, down, all: new Set([...up, ...down, id]) };
+}
+
+const G = { cw: 172, rh: 88, w: 152, h: 56 };  // sơ đồ: độ rộng cột, chiều cao tầng, kích thước thẻ task
+function graphHTML(ts, tr, card, hl) {
+  const X = new Map(), Y = new Map();
+  let col = 0;
+  const place = (k, d) => {
+    Y.set(k.id, d);
+    const ks = tr.kids.get(k.id) || [];
+    if (!ks.length) X.set(k.id, col++);
+    else { ks.forEach(c => place(c, d + 1)); X.set(k.id, (X.get(ks[0].id) + X.get(ks[ks.length - 1].id)) / 2); }
+  };
+  tr.roots.forEach((r, i) => { if (i) col += 0.2; place(r, 0); });  // các cây độc lập cách nhau một chút
+  const W = Math.max(1, col) * G.cw, H = (Math.max(0, ...Y.values()) + 1) * G.rh;
+  const cx = id => X.get(id) * G.cw + G.cw / 2, top = id => Y.get(id) * G.rh + 6;
+  const byId = new Map(ts.map(k => [k.id, k]));
+  let lines = '';
+  for (const k of ts) for (const d of k.deps || []) {
+    if (!X.has(d) || d === k.id) continue;
+    const cls = [tr.parent.get(k.id) === d ? '' : 'extra', ['done', 'skipped'].includes(byId.get(d).status) ? 'ok' : '',
+      hl && hl.has(d) && hl.has(k.id) ? 'hl' : ''].join(' ');
+    lines += `<line class="${cls}" x1="${cx(d)}" y1="${top(d) + G.h}" x2="${cx(k.id)}" y2="${top(k.id)}"/>`;
+  }
+  return `<div class="tgraph-wrap"><div class="tgraph" style="width:${W}px;height:${H}px">
+    <svg width="${W}" height="${H}" aria-hidden="true">${lines}</svg>
+    ${ts.filter(k => X.has(k.id)).map(k => card(k, cx(k.id) - G.w / 2, top(k.id))).join('')}</div></div>`;
+}
+
+// Task chưa làm bị tạm hoãn, hoặc chờ (gián tiếp) một task bị tạm hoãn
+function heldTasks(ts) {
+  const ids = new Map(ts.map(k => [k.id, k])), memo = new Map();
+  const go = (k, seen) => {
+    if (!memo.has(k.id)) memo.set(k.id, k.status === 'todo' && (k.hold === 'manual'
+      || (k.deps || []).some(d => ids.has(d) && !seen.has(d) && go(ids.get(d), new Set([...seen, k.id])))));
+    return memo.get(k.id);
+  };
+  return new Set(ts.filter(k => go(k, new Set())).map(k => k.id));
+}
+
+// Kéo thả: chỉ đổi chỗ giữa các task cùng nhánh, nên không bao giờ đưa task lên trước task nó phải chờ
+let dragT = null, taskView = 'tree', selTask = null;  // taskView: "list" = danh sách theo ưu tiên, "tree" = cây theo deps
+try { taskView = localStorage.getItem('nguyen-swap-taskview') || 'tree'; } catch (e) {}
+function dropNode(e) {
+  let x = dragT && e.target.closest && e.target.closest('#tasks .tnode');
+  while (x && x.dataset.par !== dragT.par) x = x.parentElement.closest('#tasks .tnode');
+  return x && +x.dataset.tid !== dragT.id ? x : null;
+}
+function clearDrop() { document.querySelectorAll('#tasks .drop-before, #tasks .drop-after').forEach(n => n.classList.remove('drop-before', 'drop-after')); }
+document.addEventListener('dragstart', e => {
+  const g = e.target.closest && e.target.closest('#tasks [data-grip]');
+  if (!g) return;
+  const n = g.closest('.tnode');
+  dragT = { id: +n.dataset.tid, par: n.dataset.par };
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', n.dataset.tid);
+  try { e.dataTransfer.setDragImage(n.querySelector('.task'), 12, 12); } catch (x) {}
+  n.classList.add('dragging');
+});
+document.addEventListener('dragover', e => {
+  const x = dropNode(e);
+  clearDrop();
+  if (!x) return;
+  const r = x.querySelector('.task').getBoundingClientRect();
+  const before = x.classList.contains('gnode') ? e.clientX < r.left + r.width / 2 : e.clientY < r.top + r.height / 2;
+  if (!validMove(dragT.id, +x.dataset.tid, before)) return;
+  e.preventDefault();
+  x.classList.add(before ? 'drop-before' : 'drop-after');
+});
+document.addEventListener('drop', e => {
+  const x = dropNode(e);
+  if (!x) return;
+  e.preventDefault();
+  const before = x.classList.contains('drop-before');
+  if (!x.classList.contains('drop-before') && !x.classList.contains('drop-after')) return;
+  clearDrop();
+  moveTask(dragT.id, +x.dataset.tid, before);
+});
+document.addEventListener('dragend', () => {
+  clearDrop();
+  document.querySelectorAll('#tasks .dragging').forEach(n => n.classList.remove('dragging'));
+  dragT = null;
+});
+function movedOrder(id, targetId, before) {
+  const order = chatData.tree.tasks.map(k => k.id).filter(i => i !== id);
+  order.splice(order.indexOf(targetId) + (before ? 0 : 1), 0, id);
+  return order;
+}
+// Dời task tới đó có còn đứng sau mọi task nó chờ và trước mọi task chờ nó không ("móng trước, nhà sau")
+function validMove(id, targetId, before) {
+  const ts = chatData.tree.tasks, pos = new Map(movedOrder(id, targetId, before).map((i, n) => [i, n]));
+  const me = ts.find(k => k.id === id);
+  return (me.deps || []).every(d => !pos.has(d) || pos.get(d) < pos.get(id))
+    && ts.every(k => !(k.deps || []).includes(id) || pos.get(k.id) > pos.get(id));
+}
+function moveTask(id, targetId, before) {
+  // chỉ dời task được kéo tới trước / sau task kia, các task khác giữ nguyên thứ tự
+  const ts = chatData.tree.tasks, order = movedOrder(id, targetId, before);
+  chatData.tree.tasks = order.map(i => ts.find(k => k.id === i));  // hiện ngay, server sắp lại cho đúng deps
+  renderTasks();
+  act('/api/tree/order', { id: chatId, order });
+}
+
+document.addEventListener('click', e => {
+  const c = e.target.closest && e.target.closest('#tasks [data-gsel]');
+  if (!c) return;
+  const id = +c.dataset.gsel;
+  selTask = selTask === id ? null : id;
+  renderTasks();
+});
+
+// Kéo cạnh phải khung kế hoạch để đổi độ rộng (nhớ lại cho lần sau)
+document.addEventListener('mousedown', e => {
+  if (e.target.id !== 'tasks-resize') return;
+  e.preventDefault();
+  const el = $('#tasks'), left = el.getBoundingClientRect().left, max = el.parentElement.clientWidth - 280;
+  document.body.classList.add('resizing');
+  const mv = ev => { el.style.width = Math.max(200, Math.min(max, ev.clientX - left)) + 'px'; };
+  const up = () => {
+    document.removeEventListener('mousemove', mv); document.removeEventListener('mouseup', up);
+    document.body.classList.remove('resizing');
+    try { localStorage.setItem('nguyen-swap-tasks-w', el.style.width); } catch (x) {}
+  };
+  document.addEventListener('mousemove', mv); document.addEventListener('mouseup', up);
+});
+document.addEventListener('dblclick', e => {  // bấm đúp: về độ rộng mặc định
+  if (e.target.id !== 'tasks-resize') return;
+  $('#tasks').style.width = '';
+  try { localStorage.removeItem('nguyen-swap-tasks-w'); } catch (x) {}
+});
+
 // Khi chờ duyệt, chi tiết task mở sẵn; nhớ các task người dùng đã tự đóng lại
 const closedTasks = new Set();
 document.addEventListener('toggle', e => {
@@ -4077,37 +4779,103 @@ document.addEventListener('toggle', e => {
 
 function renderTasks() {
   const el = $('#tasks'), T = cMode === 'tree' && chatData && chatData.tree;
-  el.hidden = !T;
+  el.hidden = $('#tasks-resize').hidden = !T;
+  if (!el.style.width) try { el.style.width = localStorage.getItem('nguyen-swap-tasks-w') || ''; } catch (x) {}
   if (!T) return setHTML(el, '');
   const open = new Set([...el.querySelectorAll('details[open]')].map(d => d.dataset.id));
   const ts = T.tasks, running = runOf(chatId).status === 'running', here = running;
   const done = ts.filter(t => t.status === 'done' || t.status === 'skipped').length;
-  const blocked = ts.find(t => t.status === 'blocked'), todo = ts.some(t => t.status === 'todo');
+  const held0 = heldTasks(ts);
+  const blocked = ts.find(t => t.status === 'blocked'), todo = ts.some(k => k.status === 'todo' && !held0.has(k.id));
   const planOnly = isPlanFlow(T.flow);
   const who = T.flow === 'parent' ? 'Bố' : 'Con';
   const needApprove = !planOnly && todo && !blocked && !T.approved;  // kế hoạch chờ người dùng duyệt
+  const qs = !blocked && !T.approved ? T.questions || [] : [];      // Bố cần người dùng trả lời trước khi duyệt
   let h = `<div class="tasks-head"><b>${planOnly ? t('Kế hoạch · {0} bước', ts.filter(x => x.status !== 'skipped').length) : t('Kế hoạch · {0}/{1} xong', done, ts.length)}</b>
     ${planOnly && ts.length ? `<button class="small primary" id="t-final" ${running ? 'disabled' : ''}>${t('Chốt & xuất file .md')}</button>` : ''}
-    ${needApprove ? `<button class="small primary" id="t-approve" ${running ? 'disabled' : ''}>${t('Duyệt & giao cho ' + who)}</button>` : ''}
+    ${needApprove && !qs.length ? `<button class="small primary" id="t-approve" ${running ? 'disabled' : ''}>${t('Duyệt & giao cho ' + who)}</button>` : ''}
     ${!planOnly && todo && !blocked && !needApprove ? `<button class="small primary" id="t-run" ${running ? 'disabled' : ''}>${t((T.flow === 'parent' ? 'Bố ' : 'Con ') + (done ? 'làm tiếp' : 'bắt đầu làm'))}</button>` : ''}
     <div class="progress"><i style="width:${ts.length ? Math.round(done / ts.length * 100) : 0}%"></i></div></div>`;
+  const list = planOnly || taskView === 'list';
+  if (!planOnly && ts.length > 1) h += `<div class="tabs tview" role="tablist" aria-label="${t('Cách xem kế hoạch')}">
+    <button role="tab" data-tview="list" aria-selected="${list}">${t('Danh sách')}</button>
+    <button role="tab" data-tview="tree" aria-selected="${!list}">${t('Cây')}</button></div>`;
   if (!ts.length) h += '<p class="hint" style="margin:0">Chưa có task nào. Bố sẽ lập danh sách task khi trả lời.</p>';
   if (!planOnly && ts.length) {
     const hasDeps = ts.some(x => 'deps' in x), seq = String(T.workers) === '1';
     h += `<p class="hint" style="margin:2px 0 4px">${!hasDeps ? t('Kế hoạch chưa có deps nên chạy tuần tự.')
       : seq ? t('Bạn chọn chạy tuần tự (1 Con).') : t('Bố cho chạy tối đa {0} Con song song.', T.parallel || 1)}</p>`;
   }
-  if (needApprove && !running) h += `<div class="ask" style="border-color:var(--accent)"><b style="color:var(--accent)">${t('Kế hoạch chờ bạn duyệt')}</b>\n${t('Đọc kỹ các task bên dưới (đã mở sẵn chi tiết). Đúng ý thì bấm "Duyệt & giao cho {0}". Chưa đúng thì gõ góp ý rồi bấm "Gửi cho Bố" để Bố sửa. {0} chỉ bắt đầu sau khi bạn duyệt.', t(who))}</div>`;
+  if (qs.length && !running) h += `<div class="ask"><b>${t('Bố cần bạn trả lời {0} câu hỏi trước khi duyệt', qs.length)}</b>
+<span class="hint">${t('Trả lời hết một lần để Con làm một mạch, không phải dừng giữa chừng hỏi lại. Mẫu trả lời đã điền sẵn ở ô bên dưới: điền tiếp rồi bấm "Gửi cho Bố".')}</span>
+<ol class="qlist" data-noi18n>${qs.map(q => `<li>${esc(q)}</li>`).join('')}</ol><button class="small" id="t-fillq">${t('Điền lại mẫu trả lời')}</button> <button class="small ghost" id="t-skipq">${t('Bỏ qua câu hỏi, duyệt luôn')}</button></div>`;
+  else if (needApprove && !running) h += `<div class="ask" style="border-color:var(--accent)"><b style="color:var(--accent)">${t('Kế hoạch chờ bạn duyệt')}</b>\n${t('Đọc kỹ các task bên dưới (đã mở sẵn chi tiết). Đúng ý thì bấm "Duyệt & giao cho {0}". Chưa đúng thì gõ góp ý rồi bấm "Gửi cho Bố" để Bố sửa. {0} chỉ bắt đầu sau khi bạn duyệt.', t(who))}</div>`;
+  if (T.expected) h += `<div class="expect"><b>🎯 ${t('Kết quả dự kiến')}</b>\n<span data-noi18n>${esc(T.expected)}</span></div>`;
+  else if (!planOnly && ts.some(k => k.status === 'todo')) h += `<div class="expect miss">${t('Bố chưa ghi kết quả dự kiến của kế hoạch. Nên gửi cho Bố: "Bổ sung kết quả dự kiến" trước khi duyệt.')}</div>`;
   if (T.final_file) h += `<div class="ask" style="border-color:var(--live)"><b style="color:var(--live)">${t('Đã xuất kế hoạch:')}</b>\n<span data-noi18n>${esc(T.final_file)}</span>\n<button class="small" id="t-open-final">${t('Mở file')}</button></div>`;
   if (blocked) h += `<div class="ask"><b>${t('Con cần bạn xác nhận ở task #{0}:', blocked.id)}</b>\n<span data-noi18n>${esc(blocked.question)}</span>\n<span class="hint">${t('Mẫu trả lời đã được điền sẵn ở ô bên dưới: điền tiếp rồi bấm "Gửi cho Bố". Bố phân tích, cập nhật task cho rõ' + (T.auto ? ', rồi Con tự làm tiếp' : ', rồi bạn duyệt lại kế hoạch') + '.')}</span>\n<button class="small" id="t-fill">Điền lại mẫu trả lời</button></div>`;
-  h += ts.map(t => `<div class="task ${esc(t.status)}"><span class="st" title="${T_TEXT[t.status]}">${T_MARK[t.status]}</span>
-    <details data-id="${t.id}" ${(needApprove ? t.status === 'todo' && !closedTasks.has(String(t.id)) : open.has(String(t.id))) ? 'open' : ''}><summary><span class="tt">#${t.id} ${esc(t.title)}</span></summary>
-      ${t.deps && t.deps.length ? `<div class="detail">${tx('Làm sau task')}: ${t.deps.map(d => '#' + d).join(', ')}</div>` : ''}
-      ${t.detail ? `<div class="detail">${esc(t.detail)}</div>` : ''}
-      ${t.result && t.status === 'done' ? `<div class="detail"><b>Con báo:</b> ${esc(t.result)}</div>` : ''}</details>
-    ${here ? '' : taskButtons(t)}</div>`).join('');
+  const tr = taskTree(ts), held = held0;
+  if (selTask != null && !ts.some(k => k.id === selTask)) selTask = null;
+  const chain = list || selTask == null ? null : chainOf(ts, selTask);
+  if (!planOnly && ts.length > 1) h += `<p class="hint" style="margin:0 0 4px">${list
+    ? t('Kéo ⠿ để đổi ưu tiên (trên = làm trước). Không kéo được task lên trước task nó phải chờ. Mở task để Để cuối / Tạm hoãn.')
+    : t('Task bên dưới phải chờ task nối phía trên xong (nét đứt: cũng chờ). Kéo thẻ sang trái / phải để đổi ưu tiên (trái = làm trước). Bấm một thẻ để xem chi tiết, Để cuối / Tạm hoãn.')}</p>`;
+  const tagOf = k => k.status !== 'todo' ? '' : k.hold === 'last' ? '⏭ ' + t('để cuối') : k.hold === 'manual' ? '⏸ ' + t('tạm hoãn')
+    : held.has(k.id) ? t('chờ task hoãn') : '';
+  const node = (k, sel) => {
+    const p = null;
+    const also = (k.deps || []).filter(d => d !== p);
+    const tag = tagOf(k);
+    const sibs = sel ? [] : ts;
+    return `<div class="tnode ${sel === true ? 'tsel' : sel ? 'tchain' : ''}" data-tid="${k.id}" data-par="${sel ? 'sel' : '*'}">
+    <div class="task ${esc(k.status)} ${held.has(k.id) || (k.status === 'todo' && k.hold) ? 'held' : ''}">
+    ${!planOnly && sibs.length > 1 ? `<span class="grip" draggable="true" data-grip title="${t('Kéo để đổi ưu tiên')}">⠿</span>` : ''}
+    <span class="st" title="${T_TEXT[k.status]}">${T_MARK[k.status]}</span>
+    <details data-id="${k.id}" ${sel === true || (needApprove ? k.status === 'todo' && !closedTasks.has(String(k.id)) : open.has(String(k.id))) ? 'open' : ''}><summary><span class="tt">#${k.id} ${esc(k.title)}</span>${tag ? `<span class="hold">${tag}</span>` : ''}</summary>
+      ${also.length ? `<div class="detail">${tx(p == null ? 'Làm sau task' : 'Cũng chờ task')}: ${also.map(d => '#' + d).join(', ')}</div>` : ''}
+      ${k.detail ? `<div class="detail">${esc(k.detail)}</div>` : ''}
+      ${k.expected ? `<div class="detail expect-t"><b>🎯 ${t('Kết quả dự kiến')}:</b> ${esc(k.expected)}</div>` : ''}
+      ${k.result && k.status === 'done' ? `<div class="detail"><b>Con báo:</b> ${esc(k.result)}</div>` : ''}
+      ${planOnly ? '' : holdButtons(k)}</details>
+    ${here ? '' : taskButtons(k)}</div>
+    </div>`;
+  };
+  const card = (k, x, y) => {
+    const p = tr.parent.get(k.id), sibs = p == null ? tr.roots : tr.kids.get(p), tag = tagOf(k);
+    const drag = !planOnly && sibs.length > 1;
+    return `<div class="tnode gnode ${selTask === k.id ? 'sel' : chain ? chain.all.has(k.id) ? 'chain' : 'dim' : ''}" data-tid="${k.id}" data-par="${p == null ? '' : p}" style="left:${x}px;top:${y}px;width:${G.w}px">
+      <div class="task gcard ${esc(k.status)} ${held.has(k.id) || (k.status === 'todo' && k.hold) ? 'held' : ''}" ${drag ? 'draggable="true" data-grip' : ''} data-gsel="${k.id}" title="${esc(k.title)}">
+      <span class="st">${T_MARK[k.status]}</span><span class="tt">#${k.id} ${esc(k.title)}</span>${tag ? `<span class="hold">${tag}</span>` : ''}</div></div>`;
+  };
+  if (list) h += ts.map(k => node(k)).join('');
+  else {
+    h += graphHTML(ts, tr, card, chain && chain.all);
+    if (!chain) h += `<p class="hint" style="margin:6px 0 0">${t('Bấm vào một task trên sơ đồ để xem chi tiết.')}</p>`;
+    else {
+      const part = (title, set) => {
+        const ks = ts.filter(k => set.has(k.id));
+        return ks.length ? `<div class="tchain-h">${title} (${ks.length})</div>` + ks.map(k => node(k, 'chain')).join('') : '';
+      };
+      h += part(t('Cần xong trước'), chain.up)
+        + `<div class="tchain-h">${t('Task đang chọn')}</div>` + node(ts.find(k => k.id === selTask), true)
+        + part(t('Nối đuôi phía sau'), chain.down);
+    }
+  }
   setHTML(el, h);
   if (blocked) autoFill(blocked);
+  else if (qs.length && !running) fillQuestions(qs);
+}
+
+// Mẫu trả lời các câu hỏi của Bố: mỗi câu một mục "Trả lời: " để điền tiếp
+function fillQuestions(qs, force) {
+  const key = chatId + '#q#' + qs.join('|'), box = $('#c-input');
+  if (!force && (filledKey === key || box.value.trim())) return;
+  filledKey = key;
+  box.value = t('Trả lời các câu hỏi của Bố:') + '\n' + qs.map((q, i) => `${i + 1}. ${q}\n   ${t('Trả lời:')} `).join('\n');
+  const at = box.value.indexOf(t('Trả lời:') + ' '), pos = at >= 0 ? at + t('Trả lời:').length + 1 : box.value.length;
+  box.focus();
+  box.setSelectionRange(pos, pos);
+  box.scrollTop = 0;
 }
 
 // Mẫu trả lời cho câu hỏi của Con: lấy danh sách đánh số trong tin nhắn cuối của Con ở task đó
@@ -4202,11 +4970,11 @@ function renderChat(otherBusy) {
   $('#c-row').hidden = tree && tFlow === 'plan_parent';  // chỉ Bố lập kế hoạch: không cần hàng Con
   $('#c-perm').hidden = tree && isPlanFlow(tFlow);       // lập kế hoạch luôn chỉ đọc
   $('#c-effort').value = cEffort; $('#p-effort').value = pEffort;
-  const effLocked = (tg, md) => toolOf(tg) === 'agy' && /-(minimal|low|medium|high|xhigh|max|thinking)$/.test(md || '');
+  const effLocked = (tg, md) => toolOf(tg) === 'agy' && /-(minimal|low|medium|high|xhigh|max|thinking)$|^(claude|gpt-oss)-/.test(md || '');
   for (const [id, tg, md] of [['#c-effort', cTarget, cModel], ['#p-effort', pTarget, pModel]]) {
     const lock = effLocked(tg, md);
     $(id).disabled = lock;
-    $(id).title = lock ? t('Model agy này đã gồm mức effort trong tên (High / Medium / Low), nên không chọn thêm effort.')
+    $(id).title = lock ? t('Model agy này đã gồm mức effort trong tên (High / Medium / Low) hoặc agy cố định effort cho nó, nên không chọn thêm effort.')
       : t('Mức suy nghĩ: cao hơn thì kỹ hơn nhưng chậm và tốn hạn mức hơn');
   }
   $('#c-role').textContent = tFlow === 'parent' ? 'Bố làm' : 'Con';
@@ -4320,7 +5088,7 @@ function finished(was) {
   toast(msg);
   if (document.hidden) document.title = '● ' + (meta.title || 'Nguyên Swap');
 }
-document.addEventListener('visibilitychange', () => { if (!document.hidden) document.title = 'Nguyên Swap'; });
+document.addEventListener('visibilitychange', () => { if (!document.hidden) { document.title = 'Nguyên Swap'; refresh(); } });
 
 // Cây task: gửi tin cho Bố (path = /api/tree/plan) hoặc cho Con làm các task còn lại (/api/tree/run).
 async function sendTree(path, extra) {
@@ -4546,6 +5314,47 @@ async function saveRename(label) {
   renderUsage(); renderStats();  // tab Mức sử dụng không tự vẽ lại theo /api/state
 }
 
+// Cài đặt: tab con
+let sTab = 'acc';
+try { sTab = localStorage.getItem('nguyen-swap-stab') || 'acc'; } catch (e) {}
+function setSTab(k) {
+  sTab = k;
+  document.querySelectorAll('[data-stab]').forEach(b => b.setAttribute('aria-selected', String(b.dataset.stab === k)));
+  document.querySelectorAll('[data-spane]').forEach(d => { d.hidden = d.dataset.spane !== k; });
+  try { localStorage.setItem('nguyen-swap-stab', k); } catch (e) {}
+  if (k === 'transfer') loadTransfer();
+}
+const TOOL_SHORT = { agy: 'agy', claude: 'Claude Code', codex: 'Codex' };
+async function loadTransfer() {
+  try {
+    const d = await api('/api/transfer/list', {});
+    setHTML($('#tx-list'), d.accounts.length ? d.accounts.map(a => {
+      const name = a.target.includes(':') ? a.target.split(':')[1] : t('Mặc định');
+      return `<label class="xrow"><input type="checkbox" value="${esc(a.target)}" checked>
+        <b>${esc(TOOL_SHORT[a.tool])}</b><span>${esc(a.label || name)}</span><span class="who" data-noi18n>${esc(a.who || '')}</span></label>`;
+    }).join('') : `<div class="empty">${t('Chưa có tài khoản nào đã đăng nhập để xuất.')}</div>`);
+  } catch (e) { toast(e.message); }
+}
+async function doExport() {
+  const targets = [...document.querySelectorAll('#tx-list input:checked')].map(x => x.value);
+  try {
+    const d = await api('/api/transfer/export', { targets, password: $('#tx-pass').value });
+    $('#tx-text').value = d.text; $('#tx-out').hidden = false;
+    $('#tx-info').textContent = t('{0} tài khoản · máy kia cần mật khẩu bạn vừa đặt', d.count);
+    $('#tx-text').select();
+  } catch (e) { toast(e.message); }
+}
+async function doImport() {
+  try {
+    const d = await api('/api/transfer/import', { text: $('#rx-text').value, password: $('#rx-pass').value });
+    $('#rx-pass').value = ''; $('#rx-text').value = '';
+    setHTML($('#rx-out'), `<div class="rx-ok"><b>${t('Đã nhập {0} tài khoản:', d.imported.length)}</b><br>` + d.imported.map(x =>
+      `${esc(x.target)}${x.who ? ` · <span data-noi18n>${esc(x.who)}</span>` : ''}${x.skipped ? ' · ' + t('đang dùng trên máy này, giữ nguyên') : ''}`).join('<br>') + '</div>');
+    toast(t('Đã nhập {0} tài khoản', d.imported.length));
+    await refresh();
+  } catch (e) { toast(e.message); }
+}
+
 function setTab(t) {
   document.querySelectorAll('[data-tab]').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === t)));
   $('#view-chat').hidden = t !== 'chat';
@@ -4555,6 +5364,7 @@ function setTab(t) {
   try { localStorage.setItem('nguyen-swap-tab', t); } catch (e) {}
   if (t === 'chat' && S) renderMessages(true);
   if (t === 'usage') loadUsage(); else clearTimeout(usageTimer);
+  if (t === 'accounts') setSTab(sTab);
 }
 
 function renderSelftest(busy) {
@@ -4598,7 +5408,16 @@ document.addEventListener('click', e => {
     : cMode === 'tree' ? sendTree('/api/tree/plan') : sendChat();
   else if (b.dataset.mode) { cMode = b.dataset.mode; renderChat(); }
   else if (b.id === 't-run') sendTree('/api/tree/run');
+  else if (b.dataset.stab) setSTab(b.dataset.stab);
+  else if (b.id === 'tx-export') doExport();
+  else if (b.id === 'tx-copy') navigator.clipboard.writeText($('#tx-text').value).then(() => toast(t('Đã sao chép.')), () => { $('#tx-text').select(); toast(t('Bấm Ctrl+C để sao chép.')); });
+  else if (b.id === 'rx-import') doImport();
   else if (b.id === 't-approve') sendTree('/api/tree/run', { approve: true });
+  else if (b.id === 't-fillq') fillQuestions((chatData && chatData.tree && chatData.tree.questions) || [], true);
+  else if (b.id === 't-skipq') {
+    if (confirm(t('Duyệt kế hoạch khi Bố còn câu hỏi chưa trả lời? Con sẽ tự chọn cách hợp lý cho các điểm chưa rõ.')))
+      sendTree('/api/tree/run', { approve: true, skip_questions: true });
+  }
   else if (b.id === 't-final') sendTree('/api/tree/finalize');
   else if (b.dataset.copy !== undefined) copyMessage(b);
   else if (b.id === 't-open-final') api('/api/open-plan', { id: chatId }).then(d => toast(t('Đã mở {0}', d.path))).catch(e => toast(e.message));
@@ -4615,6 +5434,8 @@ document.addEventListener('click', e => {
     attach = attach.filter(x => x !== a); renderAttach();
   }
   else if (b.id === 't-fill') { const t = chatData && chatData.tree && chatData.tree.tasks.find(t => t.status === 'blocked'); if (t) autoFill(t, true); }
+  else if (b.dataset.tview) { taskView = b.dataset.tview; try { localStorage.setItem('nguyen-swap-taskview', taskView); } catch (e) {} renderTasks(); }
+  else if (b.dataset.holdTask) act('/api/tree/hold', { id: chatId, task: +b.dataset.holdTask, hold: b.dataset.hold });
   else if (b.dataset.task) act('/api/tree/task', { id: chatId, task: +b.dataset.task, status: b.dataset.status });
   else if (b.dataset.toolLogin) act('/api/tool-login', { tool: b.dataset.toolLogin, name: b.dataset.name || '' });
   else if (b.dataset.toolRemove) {
@@ -4855,6 +5676,8 @@ def main():
     clean_uploads()
     # đọc trước lịch sử Claude Code 30 ngày ở nền để trang Thống kê mở nhanh
     threading.Thread(target=lambda: usage_stats("30d"), daemon=True).start()
+    if IS_WIN:
+        threading.Thread(target=keep_awake, daemon=True).start()
     try:
         httpd = ThreadingHTTPServer((HOST, PORT), Handler)
     except OSError:
