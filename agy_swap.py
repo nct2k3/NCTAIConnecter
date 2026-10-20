@@ -3525,390 +3525,2133 @@ PAGE = r"""<!doctype html>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-:root{--s1:#2a78d6;--s2:#eb6834;--s3:#1baf7a;--s4:#eda100;--s5:#e87ba4;--s6:#008300;--s7:#6250d6;--s8:#e34948;--s0:#8A96A3;--bg:#EEF1F4;--panel:#F9FAFB;--ink:#18232F;--muted:#5B6875;--line:#CDD5DD;--accent:#2F5BD3;--on-accent:#fff;--live:#178A5E;--warn:#9A6A00;--danger:#B4382F}
-@media (prefers-color-scheme:dark){:root{--s1:#3987e5;--s2:#d95926;--s3:#199e70;--s4:#c98500;--s5:#d55181;--s6:#008300;--s7:#9085e9;--s8:#e66767;--s0:#5E6A77;--bg:#141A21;--panel:#1B232C;--ink:#E6EBF0;--muted:#94A1AE;--line:#2C3642;--accent:#8AA6FF;--on-accent:#0F1830;--live:#4CC28F;--warn:#E7B550;--danger:#F07A6E}}
-*{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 Figtree,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
-main{padding:10px}
-.top{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:10px}
-.brand{font-weight:700;font-size:17px}
-main{padding:6px 8px}
-.top{margin-bottom:6px;gap:8px}
-.top .brand{font-size:14px}
-.top .tabs{padding:2px;border-radius:9px}
-.top .tabs button,.top button.small{padding:3px 10px;font-size:13px}
-.top .top-left{gap:10px}
-.logo{display:block;height:34px;width:auto}
-.top-right{display:flex;align-items:center;gap:8px}
-.top-right select{font-size:13px;padding:3px 8px}
-.now .label{color:var(--muted);font-size:14px;margin:0}
-.now h1{font-size:clamp(26px,6.5vw,42px);line-height:1.12;letter-spacing:-.015em;margin:6px 0 8px;font-weight:700;overflow-wrap:anywhere}
-.now h1.off{color:var(--muted)}
-.now .sub{margin:0;color:var(--muted)}
-section{margin-top:40px}
-h2{font-size:15px;font-weight:600;margin:0 0 12px}
-.list{border:1px solid var(--line);border-radius:14px;background:var(--panel);overflow:hidden}
-.row{display:flex;align-items:center;gap:12px;padding:12px 14px 12px 16px;border-top:1px solid var(--line)}
-.row:first-child{border-top:0}
-.pick{all:unset;display:flex;align-items:center;gap:14px;flex:1;min-width:0;cursor:pointer;padding:4px 0}
-.row.active .pick{cursor:default}
-.dot{width:18px;height:18px;border-radius:50%;border:2px solid var(--line);flex:none;transition:border-color .15s}
-.pick:not(:disabled):hover .dot{border-color:var(--accent)}
-.row.active .dot{border-color:var(--live);background:radial-gradient(circle,var(--live) 0 4px,transparent 5px)}
-.who{min-width:0}
-.name{font-weight:600;display:block}
-.mail{display:block;color:var(--muted);font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.tag{font-size:13px;color:var(--live);font-weight:600;flex:none}
-.empty{padding:20px 16px;color:var(--muted)}
-button{font:inherit;font-size:14px;font-weight:600;border-radius:9px;padding:9px 14px;border:1px solid var(--line);background:transparent;color:var(--ink);cursor:pointer}
-button:hover{border-color:var(--muted)}
-button.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
-button.ghost{border-color:transparent;color:var(--muted);padding:7px 10px}
-button.ghost:hover{color:var(--danger);border-color:transparent}
-button.small{padding:5px 10px;font-size:13px}
-button:disabled{opacity:.5;cursor:default}
-:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:6px}
-.field{display:flex;gap:8px;flex-wrap:wrap}
-input{font:inherit;padding:9px 12px;border-radius:9px;border:1px solid var(--line);background:var(--panel);color:var(--ink);flex:1;min-width:180px}
-.hint{color:var(--muted);font-size:14px;margin:8px 0 0}
-.panel{margin-top:14px;border:1px solid var(--line);border-radius:14px;padding:16px;background:var(--panel)}
-.panel p{margin:0 0 10px}
-.panel p:last-child{margin-bottom:0}
-.panel.ok{border-color:var(--live)}
-.panel.bad{border-color:var(--danger)}
-.warn{color:var(--warn)}
-.running{margin-top:20px;padding:12px 16px;border-radius:12px;border:1px solid var(--warn);display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap}
-.running p{margin:0;color:var(--warn);font-size:14px;flex:1;min-width:220px}
-.spin{display:inline-block;width:12px;height:12px;border:2px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:s .8s linear infinite;vertical-align:-1px;margin-right:8px}
-@keyframes s{to{transform:rotate(360deg)}}
-select{font:inherit;padding:9px 12px;border-radius:9px;border:1px solid var(--line);background:var(--panel);color:var(--ink)}
-.check{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:14px;color:var(--muted);cursor:pointer}
-.check input{flex:none;min-width:0;width:16px;height:16px;margin:0;accent-color:var(--accent)}
-details{margin-top:10px}
-summary{cursor:pointer;color:var(--muted);font-size:14px}
-pre{max-height:200px;overflow:auto;font-size:12px;line-height:1.4;background:var(--bg);padding:10px;border-radius:8px;white-space:pre-wrap;overflow-wrap:anywhere;margin:8px 0 0}
-.notice{margin-top:14px;padding:14px 16px;border-radius:12px;border:1px dashed var(--line)}
-#view-accounts{padding:0 6px 40px}
-.tool-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 18px;align-items:start}
-@media (max-width:900px){.tool-grid{grid-template-columns:1fr}}
-.now.compact{display:flex;align-items:baseline;gap:4px 12px;flex-wrap:wrap;margin:6px 0 14px}
-.now.compact h1{font-size:20px;margin:0}
-.now.compact .label,.now.compact .sub{font-size:13px}
-.stabs{display:inline-flex;margin-bottom:6px;flex-wrap:wrap}
-#view-accounts section{margin-top:26px}
-#view-accounts section.first{margin-top:14px}
-.xfer textarea{width:100%;box-sizing:border-box;font-family:ui-monospace,Consolas,monospace;font-size:12px;margin-top:4px}
-.xrow{display:flex;align-items:center;gap:10px;padding:9px 14px;border-top:1px solid var(--line);cursor:pointer;font-size:14px}
-.xrow:first-child{border-top:0}
-.xrow input{flex:none;min-width:0;width:16px;height:16px;margin:0;accent-color:var(--accent)}
-.xrow .who{color:var(--muted);font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.warn-box{border:1px solid var(--warn);color:var(--warn);border-radius:10px;padding:8px 12px;margin-top:22px}
-.rx-ok{margin-top:10px;border:1px solid var(--live);border-radius:10px;padding:8px 12px;font-size:14px}
-#view-usage{padding:0 0 24px}
-section.first{margin-top:4px}
-.tabs{display:flex;gap:4px;padding:3px;border:1px solid var(--line);border-radius:11px;background:var(--panel)}
-.tabs button{border:0;padding:6px 14px;color:var(--muted)}
-.tabs button[aria-selected="true"]{background:var(--accent);color:var(--on-accent)}
-.top-left{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
-.row select.model{max-width:170px;font-size:13px;padding:5px 8px;flex:none}
-.chat{display:grid;grid-template-columns:260px 1fr;gap:10px;height:100%;min-height:420px}
-body.chat-on main{height:100vh;height:100dvh;display:flex;flex-direction:column}
-body.chat-on #view-chat{flex:1;min-height:0}
-.chat.side-off{grid-template-columns:1fr}
-.chat.side-off .threads{display:none}
-.icon-btn{padding:4px 9px;font-size:16px;line-height:1}
-.head-summary{flex:1;min-width:0;font-size:13px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-#head-toggle{margin-left:auto}
-.conv-head.compact .head-row:not(:first-child),.conv-head.compact .check{display:none!important}
-.conv-head.compact{padding:5px 8px}
-.conv-head.compact .tabs{padding:2px;border-radius:9px}
-.conv-head.compact .tabs button,.conv-head.compact #head-toggle{padding:3px 10px;font-size:13px}
-.composer{padding:8px 10px;gap:6px}
-.composer textarea{min-height:44px;padding:8px 10px}
-.composer .hint{font-size:13px}
-.composer-bar button.small{padding:4px 10px}
-.composer-bar button.primary{padding:6px 14px}
-.chat{gap:8px}
-.messages{padding:12px}
-*{scrollbar-width:thin;scrollbar-color:var(--line) transparent}
-::-webkit-scrollbar{width:6px;height:6px}
-::-webkit-scrollbar-track{background:transparent}
-::-webkit-scrollbar-thumb{background:var(--line);border-radius:3px}
-::-webkit-scrollbar-thumb:hover{background:var(--muted)}
-::-webkit-scrollbar-button{display:none}
-.threads{display:flex;flex-direction:column;gap:10px;min-height:0}
-.thread-list{overflow:auto;border:1px solid var(--line);border-radius:14px;background:var(--panel);flex:1}
-.thread{display:flex;align-items:center;border-top:1px solid var(--line)}
-.thread:first-child{border-top:0}
-.thread .open{all:unset;flex:1;min-width:0;padding:10px 12px;cursor:pointer}
-.thread.sel{background:var(--bg)}
-.thread .t{display:block;font-size:14px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.thread .m{display:block;font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.conv{display:flex;flex-direction:column;min-height:0;min-width:0;border:1px solid var(--line);border-radius:14px;background:var(--panel)}
-.conv-head{display:flex;flex-direction:column;gap:6px;padding:10px 12px;border-bottom:1px solid var(--line)}
-.conv-head select,.conv-head input{font-size:14px;padding:6px 10px}
-.conv-body{flex:1;min-height:0;display:flex}
-.head-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-.head-row select{flex:1;min-width:140px}
-.head-row select.effort{flex:0 1 170px;min-width:130px}
-#t-flow-row #t-workers{flex:0 1 190px;min-width:150px}
-.acts .wk{color:var(--ink);font-weight:600;margin-top:4px}
-.acts .wk:first-child{margin-top:0}
-#p-row,#c-row,#r-row{display:grid;grid-template-columns:64px minmax(0,1.3fr) minmax(0,1fr) 170px 210px;gap:8px}
-#p-row>*,#c-row>*{min-width:0}
-#p-target,#c-target{grid-column:2}
-#p-model,#c-model{grid-column:3}
-#p-effort,#c-effort{grid-column:4}
-#p-row .ws-label,#c-perm{grid-column:5}
-#p-row .ws-label{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.role-tag{text-align:center;white-space:nowrap}
-#c-row:has(#c-role[hidden]) #c-target{grid-column:1/3}
-#r-target{grid-column:2}
-#r-model{grid-column:3}
-#r-effort{grid-column:4}
-#r-row .ws-label{grid-column:5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-#r-row:has(#r-target option[value=""]:checked) #r-target{grid-column:2/4}
-.role-tag.review{color:var(--s7)}
-@media (max-width:900px){#p-row,#c-row,#r-row{display:flex;flex-wrap:wrap}}
-.head-row input{min-width:160px}
-.ws-label{font-size:14px;color:var(--muted)}
-.messages{flex:1;min-width:0;overflow:auto;padding:16px;display:flex;flex-direction:column;gap:14px}
-.msg{max-width:88%;padding:10px 14px;border-radius:12px;overflow-wrap:anywhere}
-.msg.user{align-self:flex-end;background:var(--accent);color:var(--on-accent);white-space:pre-wrap}
-.msg.assistant{align-self:flex-start;background:var(--bg)}
-.msg.error{align-self:flex-start;border:1px solid var(--danger);color:var(--danger);white-space:pre-wrap}
-.msg .meta{display:block;font-size:12px;color:var(--muted);margin-top:6px}
-.msg.user .meta{color:inherit;opacity:.75}
-.msg pre{max-height:none;background:var(--panel);margin:8px 0}
-.msg code{font-family:Consolas,ui-monospace,monospace;font-size:13px}
-.msg p{margin:0 0 8px}
-.msg p:last-of-type{margin-bottom:0}
-.composer{border-top:1px solid var(--line);padding:12px;display:flex;flex-direction:column;gap:8px}
-textarea{font:inherit;padding:10px 12px;border-radius:9px;border:1px solid var(--line);background:var(--bg);color:var(--ink);resize:vertical;min-height:64px;max-height:40vh}
-.composer-bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-.composer-bar select{flex:1;min-width:0;font-size:14px}
-[hidden]{display:none!important}
-.role-tag{flex:none;font-size:13px;font-weight:700;padding:4px 10px;border-radius:7px;background:var(--bg)}
-.role-tag.parent{color:var(--accent)}
-.role-tag.child{color:var(--live)}
-.tasks{flex:none;width:clamp(230px,24%,320px);border-right:1px solid var(--line);padding:0 10px 10px;overflow:auto;display:flex;flex-direction:column;gap:2px}
-.tasks-head{position:sticky;top:0;z-index:1;background:var(--panel);display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 2px 8px;margin-bottom:4px;border-bottom:1px solid var(--line)}
-.tasks-head b{flex:1;font-size:14px}
-.progress{flex-basis:100%;height:4px;border-radius:2px;background:var(--line);overflow:hidden}
-.progress i{display:block;height:100%;background:var(--live);transition:width .3s}
-.task{display:flex;gap:8px;align-items:flex-start;font-size:14px;padding:4px 6px;border-radius:8px}
-.task.doing{background:var(--bg)}
-.task.doing .tt{font-weight:600}
-@media (hover:hover){.task:not(:hover):not(:focus-within) button{opacity:0}}
-.task .st{flex:none;width:18px;text-align:center;font-weight:700;color:var(--muted)}
-.task.done .st{color:var(--live)}
-.task.doing .st{color:var(--accent)}
-.task.blocked .st{color:var(--warn)}
-.task.done .tt,.task.skipped .tt{color:var(--muted)}
-.task.skipped .tt{text-decoration:line-through}
-.task details{margin:0;flex:1;min-width:0}
-.task summary{color:var(--ink);font-size:14px;list-style-position:inside}
-.task .detail{white-space:pre-wrap;color:var(--muted);font-size:13px;margin:4px 0 0;overflow-wrap:anywhere}
-.task button{flex:none}
-.tnode{display:flex;flex-direction:column}
-.tasks .tview{align-self:flex-start;margin:0 0 6px}
-.tasks .tview button{padding:3px 12px;font-size:12px}
-.tasks-resize{flex:none;width:6px;margin-left:-3px;cursor:col-resize;position:relative;z-index:2}
-.tasks-resize:hover,body.resizing .tasks-resize{background:var(--accent);opacity:.5}
-body.resizing{cursor:col-resize;user-select:none}
-.tgraph-wrap{overflow:auto;padding:4px 0 8px;flex:none;max-height:70vh}
-.tgraph{position:relative;margin:0 auto}
-.tgraph svg{position:absolute;inset:0;overflow:visible}
-.tgraph line{stroke:var(--muted);stroke-width:1.6;opacity:.7}
-.tgraph line.ok{stroke:var(--live)}
-.tgraph line.extra{stroke-dasharray:4 4}
-.gnode{position:absolute}
-.task.gcard{height:56px;box-sizing:border-box;border:1px solid var(--line);border-radius:10px;background:var(--bg);padding:6px 8px;
-  display:flex;flex-wrap:wrap;align-content:flex-start;gap:2px 6px;cursor:pointer;overflow:hidden}
-.task.gcard[data-grip]{cursor:grab}
-.task.gcard .st{width:auto}
-.task.gcard .tt{flex:1;min-width:0;font-size:12.5px;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-.task.gcard .hold{margin:0;width:100%}
-.task.gcard.done{border-color:var(--live)}
-.task.gcard.doing{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
-.task.gcard.blocked{border-color:var(--warn)}
-.gnode.sel .task.gcard{outline:2px solid var(--accent);outline-offset:1px}
-.gnode.drop-before>.task{box-shadow:inset 4px 0 0 var(--accent)}
-.gnode.drop-after>.task{box-shadow:inset -4px 0 0 var(--accent)}
-.tnode.tsel>.task{background:var(--bg);border:1px solid var(--accent)}
-.qlist{margin:6px 0 8px;padding-left:20px;white-space:normal}
-.qlist li{margin:3px 0}
-.expect{white-space:pre-wrap;font-size:13px;border:1px solid var(--live);border-radius:10px;padding:8px 10px;margin:4px 0 6px;overflow-wrap:anywhere}
-.expect b{color:var(--live)}
-.expect.miss{border-color:var(--warn);color:var(--warn)}
-.task .detail.expect-t b{color:var(--live)}
-.tchain-h{font-size:12px;font-weight:600;color:var(--muted);margin:10px 0 2px;padding-top:6px;border-top:1px solid var(--line)}
-.gnode.dim{opacity:.4}
-.gnode.chain .task.gcard{border-color:var(--accent)}
-.tgraph line.hl{stroke:var(--accent);opacity:1;stroke-width:2.4}
-.task .grip{flex:none;width:10px;cursor:grab;color:var(--muted);user-select:none;line-height:20px}
-.task .hold{font-size:11px;color:var(--warn);margin-left:6px;white-space:nowrap}
-.task.held .tt{color:var(--muted)}
-.task .acts{display:flex;gap:4px;flex-wrap:wrap;margin-top:6px}
-.tnode.dragging{opacity:.4}
-.tnode.drop-before>.task{box-shadow:inset 0 2px 0 var(--accent)}
-.tnode.drop-after>.task{box-shadow:inset 0 -2px 0 var(--accent)}
-.ask{border:1px solid var(--warn);border-radius:10px;padding:10px 12px;font-size:14px;white-space:pre-wrap;overflow-wrap:anywhere}
-.ask b{color:var(--warn)}
-.msg.as-parent{border-left:3px solid var(--accent)}
-.msg.as-child{border-left:3px solid var(--live)}
-.msg.as-reviewer{border-left:3px solid var(--s7)}
-.msg.verdict-ok{box-shadow:inset 0 0 0 1px var(--live)}
-.msg.verdict-bad{box-shadow:inset 0 0 0 1px var(--warn)}
-.msg.report{align-self:stretch;max-width:none;border:1px solid var(--live);background:var(--bg)}
-@media (max-width:900px){.conv-body{flex-direction:column}.tasks{width:auto;max-height:32vh;border-right:0;border-bottom:1px solid var(--line)}}
-@media (max-width:720px){body.chat-on main{height:auto}.chat{grid-template-columns:1fr;height:auto}.thread-list{max-height:180px}.conv{height:75vh}.msg{max-width:100%}}
-.name .rename{border:0;background:none;padding:0 6px;margin-left:4px;font-size:14px;font-weight:400;color:var(--muted);vertical-align:1px}
-.name .rename:hover,.rename.solo:hover{color:var(--accent)}
-.rename.solo{border:0;background:none;padding:4px 8px;font-size:14px;font-weight:400;color:var(--muted);flex:none}
-dialog.modal{border:1px solid var(--line);border-radius:14px;background:var(--panel);color:var(--ink);padding:20px;width:min(420px,calc(100vw - 32px));box-shadow:0 20px 60px rgba(0,0,0,.35)}
-dialog.modal::backdrop{background:rgba(10,14,20,.55)}
-dialog.modal h3{margin:0 0 4px;font-size:17px}
-dialog.modal p{margin:0 0 14px;color:var(--muted);font-size:14px}
-dialog.modal input{width:100%;min-width:0}
-dialog.modal .acts{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
-dialog.modal .acts .left{margin-right:auto}
-.uquota{grid-column:1/-1;display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:8px 20px;padding:4px 0 6px}
-.uq{display:grid;grid-template-columns:1fr auto;gap:2px 10px;align-items:center;font-size:13px}
-.uq .t{font-weight:600}
-.uq .p{font-weight:600;text-align:right}
-.uq .r{color:var(--muted);font-size:12px}
-.uq .ubar{grid-column:1/-1;height:6px;margin:0}
-.uq.over .p{color:var(--danger)}
-.uq.hi .p{color:var(--warn)}
-.uqnote{grid-column:1/-1;font-size:12px;color:var(--muted)}
-.urow{display:grid;grid-template-columns:minmax(150px,1.3fr) repeat(3,minmax(100px,1fr));gap:6px 16px;padding:12px 16px;border-top:1px solid var(--line);align-items:start}
-.urow:first-child{border-top:0}
-.urow .who .name{font-size:15px}
-.ucell .k{display:block;font-size:12px;color:var(--muted)}
-.ucell .v{display:block;font-weight:700;font-size:18px;line-height:1.3}
-.ucell .s{display:block;font-size:12px;color:var(--muted)}
-.ubar{height:5px;border-radius:3px;background:var(--line);overflow:hidden;margin-top:4px}
-.ubar i{display:block;height:100%;background:var(--live)}
-.ubar.hi i{background:var(--warn)}
-.ubar.over i{background:var(--danger)}
-.umore{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:6px 16px;align-items:center;font-size:13px;color:var(--muted)}
-.umore .models{flex:1;min-width:220px}
-.umore label{display:flex;align-items:center;gap:6px}
-.umore input{flex:none;min-width:0;width:90px;padding:4px 8px;font-size:13px}
-@media (max-width:720px){.urow{grid-template-columns:1fr 1fr}.urow .who{grid-column:1/-1}}
-.files{display:flex;flex-wrap:wrap;gap:6px}
-.chip{display:flex;align-items:center;gap:6px;max-width:280px;padding:3px 4px 3px 8px;border:1px solid var(--line);border-radius:8px;font-size:13px;background:var(--bg)}
-.chip img{width:28px;height:28px;object-fit:cover;border-radius:4px;flex:none}
-.chip .n{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.chip .z{color:var(--muted);flex:none}
-.chip.err{border-color:var(--danger);color:var(--danger)}
-.chip button{padding:0 6px;border:0;font-size:15px;line-height:1;color:var(--muted)}
-.conv.drop{outline:2px dashed var(--accent);outline-offset:-4px}
-.uhead{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 10px;padding:5px 8px;border:1px solid var(--line);border-radius:14px;background:var(--panel)}
-.uhead .sp{flex:1}
-.uhead .tabs{padding:2px;border-radius:9px}
-.uhead .tabs button,.uhead button.small{padding:3px 10px;font-size:13px}
-.uhead select{font-size:13px;padding:3px 8px}
-.uhead .hint{font-size:12px}
-.ucards{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,420px),1fr));gap:10px;align-items:stretch}
-.ucard{border:1px solid var(--line);border-radius:14px;background:var(--panel);padding:14px 16px;display:flex;flex-direction:column;gap:10px;min-width:0}
-.ucard h3{margin:0;font-size:14px;font-weight:600}
-.uch{display:flex;align-items:center;gap:12px}
-.ubadge{flex:none;width:36px;height:36px;border-radius:10px;display:grid;place-items:center;font-size:12px;font-weight:700;background:var(--bg);border:1px solid var(--line);color:var(--muted)}
-.ubadge.agy{color:var(--accent)}
-.ubadge.claude{color:#D97757}
-.uch .who{flex:1;min-width:0}
-.uch .name{font-weight:600;display:block}
-.uch .mail{display:block;font-size:13px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.tooltag{flex:none;font-size:12px;color:var(--muted);border:1px solid var(--line);border-radius:6px;padding:1px 7px}
-.uqs{flex:1;display:flex;flex-direction:column;gap:2px;border-top:1px solid var(--line);padding-top:8px;min-height:120px}
-.uqg{font-size:12px;font-weight:600;color:var(--muted);margin-top:6px}
-.uqg:first-child{margin-top:0}
-.uqs .unote.foot{margin-top:auto;padding-top:6px}
-.uqr{display:grid;grid-template-columns:8px 44px minmax(60px,1fr) 40px 68px;gap:10px;align-items:center;font-size:13px;padding:3px 0}
-.uqr .dot{width:8px;height:8px;border-radius:50%;background:var(--live)}
-.uqr.hi .dot{background:var(--warn)}
-.uqr.over .dot{background:var(--danger)}
-.uqr .t{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.uqr .ubar{margin:0;height:6px}
-.uqr .p{text-align:right;font-weight:600;font-variant-numeric:tabular-nums}
-.uqr .r{text-align:right;color:var(--muted);font-size:12px;white-space:nowrap}
-.unote{font-size:12px;color:var(--muted);padding:2px 0}
-.ust{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;border-top:1px solid var(--line);padding-top:10px}
-.ust .k{display:block;font-size:12px;color:var(--muted)}
-.ust .v{display:block;font-size:17px;font-weight:700;line-height:1.3;font-variant-numeric:tabular-nums}
-.ust .v small{font-size:12px;font-weight:400;color:var(--muted)}
-.ust .s{display:block;font-size:12px;color:var(--muted)}
-.ufoot{display:flex;flex-wrap:wrap;gap:4px 12px;align-items:flex-start;font-size:12px;color:var(--muted);border-top:1px solid var(--line);padding-top:8px}
-.ufoot .models{flex:1;min-width:160px}
-.ufoot details{margin-left:auto}
-.ufoot details{margin:0}
-.ufoot summary{font-size:12px}
-.ulims{display:flex;gap:10px;margin-top:6px;flex-wrap:wrap}
-.ulims label{display:flex;align-items:center;gap:6px}
-.ulims input{flex:none;min-width:0;width:90px;padding:4px 8px;font-size:13px}
-.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:10px}
-.tile{border:1px solid var(--line);border-radius:14px;background:var(--panel);padding:10px 14px}
-.tile .k{display:block;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;font-weight:600}
-.tile .v{display:block;font-size:22px;font-weight:700;line-height:1.25;margin-top:2px;font-variant-numeric:tabular-nums}
-.tile .s{display:block;font-size:12px;color:var(--muted)}
-.ugrid{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:10px;margin-bottom:10px}
-.ugrid.even{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
-.chart{position:relative;height:200px;display:flex;align-items:flex-end;gap:2px;margin-top:6px;border-bottom:1px solid var(--line)}
-.chart .gl{position:absolute;left:0;right:0;border-top:1px dashed var(--line);pointer-events:none}
-.chart .gl span{position:absolute;left:0;top:-16px;font-size:11px;color:var(--muted);background:var(--panel);padding-right:4px}
-.chart .col{flex:1;height:100%;display:flex;align-items:flex-end;min-width:3px;position:relative;z-index:1}
-.chart .col{flex-direction:column-reverse;justify-content:flex-start}
-.chart .col i{display:block;width:100%;flex:none}
-.chart .col i+i{border-bottom:2px solid var(--panel)}
-.chart .col i:last-child{border-radius:4px 4px 0 0}
-.chart .col:hover i{filter:brightness(1.15)}
-.legend{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12px;color:var(--muted);margin-top:2px}
-.legend span{display:flex;align-items:center;gap:6px}
-.sw{display:inline-block;width:10px;height:10px;border-radius:3px;flex:none;vertical-align:-1px;margin-right:6px}
-.chart .col:hover{background:color-mix(in srgb,var(--accent) 8%,transparent)}
-.xl{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-top:4px}
-#u-tip{position:fixed;z-index:20;pointer-events:none;background:var(--ink);color:var(--bg);font-size:12px;line-height:1.5;padding:6px 9px;border-radius:8px;opacity:0;transition:opacity .1s;white-space:nowrap}
-#u-tip .sw{width:8px;height:8px;margin-right:5px}
-#u-tip b{font-weight:600}
-#u-tip.show{opacity:1}
-.utable{width:100%;border-collapse:collapse;font-size:13px}
-.utable th{text-align:left;color:var(--muted);font-weight:600;font-size:12px;padding:6px 4px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--panel)}
-.utable td{padding:6px 4px;border-bottom:1px solid var(--line);vertical-align:top}
-.utable tr:last-child td{border-bottom:0}
-.utable .num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
-.utable .sub{display:block;font-size:12px;color:var(--muted)}
-.share{display:block;height:4px;border-radius:2px;background:var(--accent);margin-top:4px;min-width:2px}
-.scroll{max-height:360px;overflow:auto}
-.usrc{margin-top:6px}
-.usrc .hint{margin:6px 0 0}
-@media (max-width:900px){.ugrid,.ugrid.even{grid-template-columns:1fr}}
-@media (max-width:560px){.uqr{grid-template-columns:8px 44px minmax(40px,1fr) 38px 60px;gap:8px}}
-.msg.pending{max-width:min(88%,900px)}
-.m-list{display:flex;flex-direction:column;gap:14px}
-.m-list:empty{display:none}
-.msg{position:relative}
-.msg .copy{position:absolute;top:4px;right:4px;border:1px solid var(--line);background:var(--panel);color:var(--muted);padding:1px 7px;font-size:13px;line-height:1.3;border-radius:6px;opacity:.55;transition:opacity .12s}
-.msg:hover .copy,.msg .copy:focus-visible{opacity:1}
-.msg .copy:hover{color:var(--accent)}
-.msg .copy.done{color:var(--live);opacity:1}
+/* ================================================================
+   ANT DESIGN v5 DESIGN SYSTEM THEME FOR NCT AI CONNECT
+   ================================================================ */
+:root {
+  /* Ant Design Color Palette (Light) */
+  --ant-primary: #1677ff;
+  --ant-primary-hover: #4096ff;
+  --ant-primary-active: #0958d9;
+  --ant-primary-bg: #e6f4ff;
+  --ant-primary-border: #91caff;
 
-.acts{margin-top:8px;padding-top:6px;border-top:1px solid var(--line);font:12px/1.55 Consolas,ui-monospace,monospace;color:var(--muted)}
-.acts div{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.acts div:last-child{color:var(--ink)}
-.acts .at{display:inline-block;min-width:44px;color:var(--muted);opacity:.7}
-.acts .more{opacity:.7}
-#toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);max-width:90vw;background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:10px;font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none}
-#toast.show{opacity:1}
-@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+  --ant-success: #52c41a;
+  --ant-success-hover: #73d13d;
+  --ant-success-active: #389e0d;
+  --ant-success-bg: #f6ffed;
+  --ant-success-border: #b7eb8f;
+
+  --ant-warning: #faad14;
+  --ant-warning-hover: #ffc53d;
+  --ant-warning-active: #d48806;
+  --ant-warning-bg: #fffbe6;
+  --ant-warning-border: #ffe58f;
+
+  --ant-error: #ff4d4f;
+  --ant-error-hover: #ff7875;
+  --ant-error-active: #d9363e;
+  --ant-error-bg: #fff2f0;
+  --ant-error-border: #ffccc7;
+
+  --ant-text: rgba(0, 0, 0, 0.88);
+  --ant-text-secondary: rgba(0, 0, 0, 0.65);
+  --ant-text-tertiary: rgba(0, 0, 0, 0.45);
+  --ant-text-quaternary: rgba(0, 0, 0, 0.25);
+
+  --ant-bg-layout: #f5f5f5;
+  --ant-bg-container: #ffffff;
+  --ant-bg-elevated: #ffffff;
+  --ant-bg-spotlight: rgba(0, 0, 0, 0.85);
+
+  --ant-border: #d9d9d9;
+  --ant-border-secondary: #f0f0f0;
+  --ant-border-focus: #1677ff;
+
+  --ant-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.03), 0 1px 6px -1px rgba(0, 0, 0, 0.02), 0 2px 4px 0 rgba(0, 0, 0, 0.02);
+  --ant-shadow-secondary: 0 6px 16px 0 rgba(0, 0, 0, 0.08), 0 3px 6px -4px rgba(0, 0, 0, 0.12), 0 9px 28px 8px rgba(0, 0, 0, 0.05);
+
+  --ant-radius: 6px;
+  --ant-radius-lg: 8px;
+  --ant-radius-sm: 4px;
+
+  /* Native variables mapped to Ant Design */
+  --s1: #1677ff; --s2: #fa8c16; --s3: #52c41a; --s4: #faad14;
+  --s5: #eb2f96; --s6: #389e0d; --s7: #722ed1; --s8: #ff4d4f; --s0: #8c8c8c;
+
+  --bg: var(--ant-bg-layout);
+  --panel: var(--ant-bg-container);
+  --ink: var(--ant-text);
+  --muted: var(--ant-text-secondary);
+  --line: var(--ant-border-secondary);
+  --accent: var(--ant-primary);
+  --on-accent: #ffffff;
+  --live: var(--ant-success);
+  --warn: var(--ant-warning);
+  --danger: var(--ant-error);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    /* Ant Design Color Palette (Dark) */
+    --ant-primary: #1668dc;
+    --ant-primary-hover: #3c89e8;
+    --ant-primary-active: #1554ad;
+    --ant-primary-bg: #111a2c;
+    --ant-primary-border: #15325b;
+
+    --ant-success: #49aa19;
+    --ant-success-hover: #6abe39;
+    --ant-success-active: #307a0c;
+    --ant-success-bg: #162312;
+    --ant-success-border: #274916;
+
+    --ant-warning: #d89614;
+    --ant-warning-hover: #e8b339;
+    --ant-warning-active: #aa7714;
+    --ant-warning-bg: #2b2111;
+    --ant-warning-border: #594214;
+
+    --ant-error: #d32029;
+    --ant-error-hover: #e84749;
+    --ant-error-active: #a61d24;
+    --ant-error-bg: #2a1215;
+    --ant-error-border: #58181c;
+
+    --ant-text: rgba(255, 255, 255, 0.85);
+    --ant-text-secondary: rgba(255, 255, 255, 0.65);
+    --ant-text-tertiary: rgba(255, 255, 255, 0.45);
+    --ant-text-quaternary: rgba(255, 255, 255, 0.25);
+
+    --ant-bg-layout: #000000;
+    --ant-bg-container: #141414;
+    --ant-bg-elevated: #1f1f1f;
+    --ant-bg-spotlight: #1f1f1f;
+
+    --ant-border: #424242;
+    --ant-border-secondary: #303030;
+    --ant-border-focus: #1668dc;
+
+    --ant-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+    --ant-shadow-secondary: 0 6px 16px 0 rgba(0, 0, 0, 0.5), 0 3px 6px -4px rgba(0, 0, 0, 0.6);
+
+    /* Native variables mapped */
+    --s1: #1668dc; --s2: #d46b08; --s3: #49aa19; --s4: #d89614;
+    --s5: #c41d7f; --s6: #307a0c; --s7: #531dab; --s8: #d32029; --s0: #595959;
+
+    --bg: var(--ant-bg-layout);
+    --panel: var(--ant-bg-container);
+    --ink: var(--ant-text);
+    --muted: var(--ant-text-secondary);
+    --line: var(--ant-border-secondary);
+    --accent: var(--ant-primary);
+    --on-accent: #ffffff;
+    --live: var(--ant-success);
+    --warn: var(--ant-warning);
+    --danger: var(--ant-error);
+  }
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 14px/1.5714285714285714 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol';
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+main {
+  padding: 10px 14px;
+}
+
+body.chat-on main {
+  height: 100vh;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+body.chat-on #view-chat {
+  flex: 1;
+  min-height: 0;
+}
+
+/* Ant Design Scrollbars */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.25) transparent;
+}
+@media (prefers-color-scheme: dark) {
+  * { scrollbar-color: rgba(255, 255, 255, 0.2) transparent; }
+}
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+}
+@media (prefers-color-scheme: dark) {
+  ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.2); }
+}
+::-webkit-scrollbar-thumb:hover { background: rgba(0, 0, 0, 0.4); }
+@media (prefers-color-scheme: dark) {
+  ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.35); }
+}
+::-webkit-scrollbar-button { display: none; }
+
+/* Ant Design Top Navigation Bar */
+.top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+  padding: 8px 16px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--ant-radius-lg);
+  box-shadow: var(--ant-shadow);
+  flex-wrap: nowrap;
+}
+
+.top-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.top .top-left { gap: 12px; }
+
+.logo {
+  display: block;
+  height: 30px;
+  width: auto;
+  cursor: pointer;
+}
+
+.brand {
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--ink);
+}
+.top .brand { font-size: 15px; }
+
+/* Ant Design Segmented Tabs */
+.tabs, .top .tabs {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  border-radius: var(--ant-radius);
+  background: rgba(0, 0, 0, 0.04);
+  border: 1px solid transparent;
+}
+@media (prefers-color-scheme: dark) {
+  .tabs, .top .tabs { background: rgba(255, 255, 255, 0.08); }
+}
+
+.tabs button, .top .tabs button {
+  border: 0;
+  padding: 4px 14px;
+  color: var(--ant-text-secondary);
+  border-radius: var(--ant-radius-sm);
+  font-size: 13.5px;
+  font-weight: 400;
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.645, 0.045, 0.355, 1);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  user-select: none;
+}
+
+.tabs button:hover:not([aria-selected="true"]), .top .tabs button:hover:not([aria-selected="true"]) {
+  color: var(--ink);
+}
+
+.tabs button[aria-selected="true"], .top .tabs button[aria-selected="true"] {
+  background: var(--panel);
+  color: var(--accent);
+  font-weight: 500;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.08);
+}
+@media (prefers-color-scheme: dark) {
+  .tabs button[aria-selected="true"], .top .tabs button[aria-selected="true"] {
+    background: var(--ant-bg-elevated);
+    color: #4096ff;
+  }
+}
+
+.top button.small {
+  padding: 4px 12px;
+  font-size: 13px;
+}
+
+.top-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.top-right select {
+  font-size: 13px;
+  padding: 4px 10px;
+  border-radius: var(--ant-radius);
+  border: 1px solid var(--ant-border);
+  background: var(--panel);
+  color: var(--ink);
+  cursor: pointer;
+  transition: all 0.2s;
+  height: 30px;
+}
+.top-right select:hover {
+  border-color: var(--ant-primary-hover);
+}
+
+#shutdown {
+  color: var(--ant-text-secondary);
+  border: 1px solid var(--ant-border);
+  background: var(--panel);
+  padding: 4px 12px;
+  font-size: 13px;
+  height: 30px;
+  border-radius: var(--ant-radius);
+  transition: all 0.2s;
+}
+#shutdown:hover {
+  color: var(--danger);
+  border-color: var(--danger);
+  background: var(--ant-error-bg);
+}
+
+/* Ant Design Buttons (.ant-btn) */
+button {
+  font: inherit;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.5714285714285714;
+  height: 32px;
+  padding: 4px 15px;
+  border-radius: var(--ant-radius);
+  border: 1px solid var(--ant-border);
+  background: var(--panel);
+  color: var(--ink);
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.645, 0.045, 0.355, 1);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  user-select: none;
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.02);
+}
+
+button:hover {
+  color: var(--ant-primary-hover);
+  border-color: var(--ant-primary-hover);
+  background: var(--panel);
+}
+
+button:active {
+  color: var(--ant-primary-active);
+  border-color: var(--ant-primary-active);
+  transform: translateY(1px);
+}
+
+button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #ffffff;
+  box-shadow: 0 2px 0 rgba(5, 145, 255, 0.1);
+  font-weight: 500;
+}
+
+button.primary:hover {
+  background: var(--ant-primary-hover);
+  border-color: var(--ant-primary-hover);
+  color: #ffffff;
+}
+
+button.primary:active {
+  background: var(--ant-primary-active);
+  border-color: var(--ant-primary-active);
+}
+
+button.ghost {
+  border-color: transparent;
+  background: transparent;
+  color: var(--ant-text-secondary);
+  padding: 4px 8px;
+  box-shadow: none;
+}
+
+button.ghost:hover {
+  color: var(--danger);
+  background: var(--ant-error-bg);
+  border-color: transparent;
+}
+
+button.small {
+  height: 24px;
+  padding: 0 7px;
+  font-size: 12px;
+  border-radius: var(--ant-radius-sm);
+}
+
+button:disabled {
+  color: var(--ant-text-quaternary);
+  border-color: var(--ant-border);
+  background: rgba(0, 0, 0, 0.04);
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none !important;
+}
+@media (prefers-color-scheme: dark) {
+  button:disabled { background: rgba(255, 255, 255, 0.08); }
+}
+
+/* Ant Design Icons */
+.ant-icon {
+  display: inline-block;
+  color: inherit;
+  font-style: normal;
+  line-height: 0;
+  text-align: center;
+  text-transform: none;
+  vertical-align: -0.125em;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  fill: currentColor;
+}
+.ant-icon.ant-spin {
+  animation: antSpin 1s linear infinite;
+}
+@keyframes antSpin {
+  100% { transform: rotate(360deg); }
+}
+button svg.ant-icon + span,
+button span + svg.ant-icon {
+  margin-left: 6px;
+}
+.grip-icon {
+  opacity: 0.5;
+  cursor: grab;
+  transition: opacity 0.2s ease;
+}
+.grip-icon:hover {
+  opacity: 1;
+}
+
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 8px;
+  font-size: 14px;
+  line-height: 1;
+  border-radius: var(--ant-radius);
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* Ant Design Inputs & Selects (.ant-input, .ant-select) */
+.field {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+input, select, textarea {
+  font: inherit;
+  font-size: 14px;
+  padding: 4px 11px;
+  border-radius: var(--ant-radius);
+  border: 1px solid var(--ant-border);
+  background: var(--panel);
+  color: var(--ink);
+  transition: all 0.2s cubic-bezier(0.645, 0.045, 0.355, 1);
+  line-height: 1.5714285714285714;
+}
+
+input {
+  height: 32px;
+  flex: 1;
+  min-width: 180px;
+}
+
+select {
+  height: 32px;
+  cursor: pointer;
+}
+
+textarea {
+  resize: vertical;
+  min-height: 64px;
+  max-height: 40vh;
+}
+
+input:hover, select:hover, textarea:hover {
+  border-color: var(--ant-primary-hover);
+}
+
+input:focus, select:focus, textarea:focus {
+  outline: 0;
+  border-color: var(--ant-primary-hover);
+  box-shadow: 0 0 0 2px rgba(5, 145, 255, 0.15);
+}
+
+.hint {
+  color: var(--ant-text-tertiary);
+  font-size: 13px;
+  margin: 6px 0 0;
+  line-height: 1.5;
+}
+
+/* Ant Design Card / Panel */
+.panel {
+  margin-top: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--ant-radius-lg);
+  padding: 16px;
+  background: var(--panel);
+  box-shadow: var(--ant-shadow);
+}
+
+.panel p { margin: 0 0 10px; }
+.panel p:last-child { margin-bottom: 0; }
+.panel.ok { border-color: var(--live); background: var(--ant-success-bg); }
+.panel.bad { border-color: var(--danger); background: var(--ant-error-bg); }
+.warn { color: var(--warn); }
+
+.running {
+  margin-top: 16px;
+  padding: 10px 16px;
+  border-radius: var(--ant-radius);
+  border: 1px solid var(--ant-warning-border);
+  background: var(--ant-warning-bg);
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.running p {
+  margin: 0;
+  color: var(--ant-text);
+  font-size: 13.5px;
+  flex: 1;
+  min-width: 220px;
+}
+
+.spin {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--ant-border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: s 0.8s linear infinite;
+  vertical-align: -2px;
+  margin-right: 8px;
+}
+@keyframes s { to { transform: rotate(360deg); } }
+
+/* Ant Design Checkbox */
+.check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  font-size: 13.5px;
+  color: var(--ant-text);
+  cursor: pointer;
+  user-select: none;
+}
+.check input {
+  flex: none;
+  min-width: 0;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+details { margin-top: 10px; }
+summary {
+  cursor: pointer;
+  color: var(--ant-primary);
+  font-size: 13.5px;
+  user-select: none;
+}
+summary:hover { color: var(--ant-primary-hover); }
+
+pre {
+  max-height: 240px;
+  overflow: auto;
+  font-size: 12.5px;
+  line-height: 1.5;
+  background: rgba(0, 0, 0, 0.04);
+  color: var(--ink);
+  padding: 12px 14px;
+  border-radius: var(--ant-radius);
+  border: 1px solid var(--line);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  margin: 8px 0 0;
+  font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  pre { background: rgba(255, 255, 255, 0.06); }
+}
+
+.notice {
+  margin-top: 14px;
+  padding: 12px 16px;
+  border-radius: var(--ant-radius);
+  border: 1px dashed var(--ant-border);
+  background: rgba(0, 0, 0, 0.02);
+}
+@media (prefers-color-scheme: dark) {
+  .notice { background: rgba(255, 255, 255, 0.03); }
+}
+
+/* ================================================================
+   CHAT VIEW
+   ================================================================ */
+.chat {
+  display: grid;
+  grid-template-columns: 270px 1fr;
+  gap: 12px;
+  height: 100%;
+  min-height: 420px;
+}
+
+.chat.side-off {
+  grid-template-columns: 1fr;
+}
+.chat.side-off .threads {
+  display: none;
+}
+
+.threads {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+}
+
+#new-chat {
+  background: var(--accent);
+  color: #ffffff;
+  border: 1px solid var(--accent);
+  border-radius: var(--ant-radius);
+  padding: 6px 16px;
+  font-weight: 500;
+  font-size: 14px;
+  height: 36px;
+  box-shadow: 0 2px 0 rgba(5, 145, 255, 0.1);
+  transition: all 0.2s cubic-bezier(0.645, 0.045, 0.355, 1);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+#new-chat::before {
+  content: "+";
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1;
+}
+#new-chat:hover {
+  background: var(--ant-primary-hover);
+  border-color: var(--ant-primary-hover);
+}
+
+.thread-list {
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--ant-radius-lg);
+  background: var(--panel);
+  box-shadow: var(--ant-shadow);
+  flex: 1;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.thread {
+  display: flex;
+  align-items: center;
+  border-radius: var(--ant-radius);
+  border: 1px solid transparent;
+  border-top: 1px solid var(--line);
+  transition: all 0.2s;
+  overflow: hidden;
+  position: relative;
+}
+.thread:first-child { border-top: 0; }
+
+.thread:hover {
+  background: var(--ant-primary-bg);
+}
+
+.thread.sel {
+  background: var(--ant-primary-bg);
+  border-color: var(--ant-primary-border);
+}
+
+.thread .open {
+  all: unset;
+  flex: 1;
+  min-width: 0;
+  padding: 8px 10px;
+  cursor: pointer;
+}
+
+.thread .t {
+  display: block;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.thread .m {
+  display: block;
+  font-size: 12px;
+  color: var(--ant-text-tertiary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-top: 2px;
+}
+
+.thread button.ghost {
+  opacity: 0;
+  padding: 4px 6px;
+  font-size: 13px;
+  transition: opacity 0.2s;
+}
+.thread:hover button.ghost, .thread:focus-within button.ghost {
+  opacity: 0.7;
+}
+.thread button.ghost:hover {
+  opacity: 1;
+}
+
+/* Ant Design Card Container (.conv) */
+.conv {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--ant-radius-lg);
+  background: var(--panel);
+  box-shadow: var(--ant-shadow);
+  overflow: hidden;
+}
+
+.conv-head {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel);
+}
+
+.conv-head select, .conv-head input {
+  font-size: 13px;
+  padding: 4px 10px;
+  height: 30px;
+}
+
+.conv-head.compact {
+  padding: 6px 12px;
+}
+.conv-head.compact .head-row:not(:first-child), .conv-head.compact .check {
+  display: none !important;
+}
+.conv-head.compact .tabs {
+  padding: 2px;
+  border-radius: var(--ant-radius);
+}
+.conv-head.compact .tabs button, .conv-head.compact #head-toggle {
+  padding: 2px 10px;
+  font-size: 12.5px;
+  height: 26px;
+}
+
+.head-summary {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  color: var(--ant-text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 0 4px;
+}
+
+#head-toggle {
+  margin-left: auto;
+  border-radius: var(--ant-radius);
+  height: 28px;
+  padding: 2px 10px;
+}
+
+.conv-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  background: var(--bg);
+}
+
+.head-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.head-row select {
+  flex: 1;
+  min-width: 140px;
+}
+.head-row select.effort {
+  flex: 0 1 170px;
+  min-width: 130px;
+}
+#t-flow-row #t-workers {
+  flex: 0 1 210px;
+  min-width: 160px;
+}
+.head-row input {
+  min-width: 160px;
+}
+.ws-label {
+  font-size: 13px;
+  color: var(--ant-text-tertiary);
+}
+
+#p-row, #c-row, #r-row {
+  display: grid;
+  grid-template-columns: 80px minmax(0, 1.3fr) minmax(0, 1fr) 170px 210px;
+  gap: 8px;
+  align-items: center;
+}
+#p-row>*, #c-row>* { min-width: 0; }
+#p-target, #c-target { grid-column: 2; }
+#p-model, #c-model { grid-column: 3; }
+#p-effort, #c-effort { grid-column: 4; }
+#p-row .ws-label, #c-perm { grid-column: 5; }
+#p-row .ws-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+#c-row:has(#c-role[hidden]) #c-target { grid-column: 1/3; }
+#r-target { grid-column: 2; }
+#r-model { grid-column: 3; }
+#r-effort { grid-column: 4; }
+#r-row .ws-label { grid-column: 5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#r-row:has(#r-target option[value=""]:checked) #r-target { grid-column: 2/4; }
+
+/* Ant Design Tag Preset (.ant-tag) */
+.role-tag {
+  flex: none;
+  display: inline-block;
+  height: 24px;
+  line-height: 22px;
+  padding: 0 8px;
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: var(--ant-radius-sm);
+  text-align: center;
+  white-space: nowrap;
+  background: var(--panel);
+  border: 1px solid var(--ant-border);
+}
+.role-tag.parent {
+  color: var(--ant-primary);
+  background: var(--ant-primary-bg);
+  border-color: var(--ant-primary-border);
+}
+.role-tag.child {
+  color: var(--ant-success);
+  background: var(--ant-success-bg);
+  border-color: var(--ant-success-border);
+}
+.role-tag.review {
+  color: #722ed1;
+  background: #f9f0ff;
+  border-color: #d3adf7;
+}
+@media (prefers-color-scheme: dark) {
+  .role-tag.review { color: #9254de; background: #1a1325; border-color: #391085; }
+}
+
+@media (max-width: 900px) {
+  #p-row, #c-row, #r-row { display: flex; flex-wrap: wrap; }
+}
+
+/* Messages Stream */
+.messages {
+  flex: 1;
+  min-width: 0;
+  overflow: auto;
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  background: var(--bg);
+}
+
+.m-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.m-list:empty { display: none; }
+
+.msg {
+  max-width: 85%;
+  padding: 10px 16px;
+  border-radius: var(--ant-radius-lg);
+  overflow-wrap: anywhere;
+  position: relative;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.msg.user {
+  align-self: flex-end;
+  background: var(--accent);
+  color: #ffffff;
+  border-radius: 8px 8px 2px 8px;
+  box-shadow: 0 2px 6px rgba(22, 119, 255, 0.2);
+  white-space: pre-wrap;
+}
+
+.msg.assistant {
+  align-self: flex-start;
+  background: var(--panel);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 8px 8px 8px 2px;
+  box-shadow: var(--ant-shadow);
+}
+
+.msg.error {
+  align-self: flex-start;
+  border: 1px solid var(--ant-error-border);
+  background: var(--ant-error-bg);
+  color: var(--ant-error);
+  border-radius: var(--ant-radius);
+  white-space: pre-wrap;
+}
+
+.msg.pending {
+  max-width: min(88%, 900px);
+}
+
+.msg .meta {
+  display: block;
+  font-size: 12px;
+  color: var(--ant-text-tertiary);
+  margin-top: 6px;
+}
+.msg.user .meta {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.msg pre {
+  max-height: none;
+  background: rgba(0, 0, 0, 0.04);
+  margin: 8px 0;
+  border-radius: var(--ant-radius);
+}
+@media (prefers-color-scheme: dark) {
+  .msg pre { background: rgba(255, 255, 255, 0.06); }
+}
+.msg code {
+  font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
+  font-size: 13px;
+}
+
+.msg p { margin: 0 0 8px; }
+.msg p:last-of-type { margin-bottom: 0; }
+
+.msg .copy {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  border: 1px solid var(--ant-border);
+  background: var(--panel);
+  color: var(--ant-text-secondary);
+  padding: 2px 7px;
+  font-size: 12px;
+  line-height: 1.3;
+  border-radius: var(--ant-radius-sm);
+  opacity: 0;
+  transition: all 0.2s;
+}
+.msg:hover .copy, .msg .copy:focus-visible { opacity: 0.9; }
+.msg .copy:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+  opacity: 1;
+}
+.msg .copy.done {
+  color: var(--live);
+  border-color: var(--live);
+  opacity: 1;
+}
+
+.msg.as-parent {
+  border-left: 3px solid var(--accent);
+}
+.msg.as-child {
+  border-left: 3px solid var(--live);
+}
+.msg.as-reviewer {
+  border-left: 3px solid #722ed1;
+}
+.msg.verdict-ok { box-shadow: inset 0 0 0 1px var(--live); }
+.msg.verdict-bad { box-shadow: inset 0 0 0 1px var(--warn); }
+.msg.report {
+  align-self: stretch;
+  max-width: none;
+  border: 1px solid var(--ant-success-border);
+  background: var(--ant-success-bg);
+  border-radius: var(--ant-radius-lg);
+}
+
+/* Activity stream */
+.acts {
+  margin-top: 10px;
+  padding: 8px 12px;
+  border-radius: var(--ant-radius);
+  background: rgba(0, 0, 0, 0.02);
+  border: 1px solid var(--line);
+  font: 12px/1.6 SFMono-Regular, Consolas, monospace;
+  color: var(--ant-text-secondary);
+}
+@media (prefers-color-scheme: dark) {
+  .acts { background: rgba(255, 255, 255, 0.04); }
+}
+.acts div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.acts div:last-child { color: var(--ink); font-weight: 500; }
+.acts .at { display: inline-block; min-width: 44px; color: var(--accent); font-weight: 500; }
+.acts .more { opacity: 0.7; }
+.acts .wk { color: var(--ink); font-weight: 600; margin-top: 4px; }
+.acts .wk:first-child { margin-top: 0; }
+
+/* Composer Box */
+.composer {
+  border-top: 1px solid var(--line);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--panel);
+}
+
+.composer textarea {
+  font: inherit;
+  padding: 8px 12px;
+  border-radius: var(--ant-radius);
+  border: 1px solid var(--ant-border);
+  background: var(--bg);
+  color: var(--ink);
+  resize: vertical;
+  min-height: 48px;
+  max-height: 40vh;
+  line-height: 1.5;
+  transition: all 0.2s;
+}
+.composer textarea:focus {
+  background: var(--panel);
+}
+
+.composer .hint {
+  font-size: 13px;
+}
+
+.composer-bar {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.composer-bar select {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  height: 32px;
+}
+
+.composer-bar button.small {
+  padding: 4px 11px;
+  height: 28px;
+  font-size: 13px;
+}
+
+.composer-bar button.primary {
+  padding: 4px 18px;
+  height: 32px;
+  font-weight: 500;
+}
+
+#c-stop {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: #fff;
+  height: 32px;
+  padding: 4px 16px;
+}
+#c-stop:hover {
+  background: var(--ant-error-hover);
+  border-color: var(--ant-error-hover);
+}
+
+.files {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 280px;
+  padding: 3px 6px 3px 8px;
+  border: 1px solid var(--ant-border);
+  border-radius: var(--ant-radius-sm);
+  font-size: 12.5px;
+  background: var(--bg);
+}
+.chip img {
+  width: 24px;
+  height: 24px;
+  object-fit: cover;
+  border-radius: 3px;
+  flex: none;
+}
+.chip .n { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chip .z { color: var(--ant-text-tertiary); flex: none; font-size: 11.5px; }
+.chip.err { border-color: var(--danger); color: var(--danger); }
+.chip button {
+  padding: 0 4px;
+  border: 0;
+  font-size: 14px;
+  line-height: 1;
+  color: var(--ant-text-tertiary);
+  background: transparent;
+  box-shadow: none;
+}
+.chip button:hover { color: var(--danger); }
+.conv.drop {
+  outline: 2px dashed var(--accent);
+  outline-offset: -4px;
+}
+
+/* Task Tree Pane */
+.tasks {
+  flex: none;
+  width: clamp(230px, 24%, 320px);
+  border-right: 1px solid var(--line);
+  padding: 0 10px 10px;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  background: var(--panel);
+}
+
+.tasks-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--panel);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 10px 2px 8px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--line);
+}
+.tasks-head b {
+  flex: 1;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+/* Ant Design Progress Line (.ant-progress) */
+.progress {
+  flex-basis: 100%;
+  height: 6px;
+  border-radius: 100px;
+  background: rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+  margin-top: 4px;
+}
+@media (prefers-color-scheme: dark) {
+  .progress { background: rgba(255, 255, 255, 0.1); }
+}
+.progress i {
+  display: block;
+  height: 100%;
+  background: var(--live);
+  border-radius: 100px;
+  transition: width 0.3s cubic-bezier(0.645, 0.045, 0.355, 1);
+}
+
+.task {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  font-size: 13.5px;
+  padding: 5px 8px;
+  border-radius: var(--ant-radius);
+  border: 1px solid transparent;
+  transition: all 0.2s;
+}
+.task.doing {
+  background: var(--ant-primary-bg);
+  border-color: var(--ant-primary-border);
+}
+.task.doing .tt { font-weight: 500; color: var(--accent); }
+@media (hover: hover) {
+  .task:not(:hover):not(:focus-within) button { opacity: 0; }
+}
+.task .st {
+  flex: none;
+  width: 18px;
+  text-align: center;
+  font-weight: 700;
+  color: var(--ant-text-tertiary);
+}
+.task.done .st { color: var(--live); }
+.task.doing .st { color: var(--accent); }
+.task.blocked .st { color: var(--warn); }
+.task.done .tt, .task.skipped .tt { color: var(--ant-text-tertiary); }
+.task.skipped .tt { text-decoration: line-through; }
+.task details { margin: 0; flex: 1; min-width: 0; }
+.task summary { color: var(--ink); font-size: 13.5px; list-style-position: inside; }
+.task .detail {
+  white-space: pre-wrap;
+  color: var(--ant-text-secondary);
+  font-size: 12.5px;
+  margin: 4px 0 0;
+  overflow-wrap: anywhere;
+  line-height: 1.5;
+}
+.task button { flex: none; }
+.tnode { display: flex; flex-direction: column; }
+.tasks .tview { align-self: flex-start; margin: 0 0 6px; }
+.tasks .tview button { padding: 2px 10px; font-size: 12px; height: 24px; border-radius: var(--ant-radius-sm); }
+
+.tasks-resize {
+  flex: none;
+  width: 6px;
+  margin-left: -3px;
+  cursor: col-resize;
+  position: relative;
+  z-index: 2;
+  transition: background 0.2s;
+}
+.tasks-resize:hover, body.resizing .tasks-resize {
+  background: var(--accent);
+  opacity: 0.6;
+}
+body.resizing { cursor: col-resize; user-select: none; }
+
+.tgraph-wrap { overflow: auto; padding: 6px 0 10px; flex: none; max-height: 70vh; }
+.tgraph { position: relative; margin: 0 auto; }
+.tgraph svg { position: absolute; inset: 0; overflow: visible; }
+.tgraph line { stroke: var(--ant-text-tertiary); stroke-width: 1.6; opacity: 0.6; }
+.tgraph line.ok { stroke: var(--live); opacity: 0.9; }
+.tgraph line.extra { stroke-dasharray: 4 4; }
+.tgraph line.hl { stroke: var(--accent); opacity: 1; stroke-width: 2.2; }
+.gnode { position: absolute; }
+
+.task.gcard {
+  height: 56px;
+  box-sizing: border-box;
+  border: 1px solid var(--ant-border);
+  border-radius: var(--ant-radius);
+  background: var(--panel);
+  padding: 6px 8px;
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  gap: 2px 6px;
+  cursor: pointer;
+  overflow: hidden;
+  box-shadow: var(--ant-shadow);
+  transition: all 0.2s;
+}
+.task.gcard:hover { box-shadow: var(--ant-shadow-secondary); }
+.task.gcard[data-grip] { cursor: grab; }
+.task.gcard .st { width: auto; }
+.task.gcard .tt {
+  flex: 1;
+  min-width: 0;
+  font-size: 12.5px;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.task.gcard .hold { margin: 0; width: 100%; }
+.task.gcard.done { border-color: var(--live); }
+.task.gcard.doing { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.task.gcard.blocked { border-color: var(--warn); }
+.gnode.sel .task.gcard { outline: 2px solid var(--accent); outline-offset: 1px; }
+.gnode.drop-before>.task { box-shadow: inset 4px 0 0 var(--accent); }
+.gnode.drop-after>.task { box-shadow: inset -4px 0 0 var(--accent); }
+.tnode.tsel>.task { background: var(--bg); border: 1px solid var(--accent); }
+
+.qlist { margin: 6px 0 8px; padding-left: 20px; white-space: normal; }
+.qlist li { margin: 3px 0; }
+
+/* Ant Design Alert Style (.ant-alert) */
+.expect {
+  white-space: pre-wrap;
+  font-size: 13px;
+  border: 1px solid var(--ant-success-border);
+  background: var(--ant-success-bg);
+  border-radius: var(--ant-radius);
+  padding: 8px 12px;
+  margin: 6px 0;
+  overflow-wrap: anywhere;
+}
+.expect b { color: var(--live); }
+.expect.miss { border-color: var(--ant-warning-border); background: var(--ant-warning-bg); color: var(--ant-text); }
+.task .detail.expect-t b { color: var(--live); }
+
+.tchain-h {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ant-text-tertiary);
+  margin: 10px 0 2px;
+  padding-top: 6px;
+  border-top: 1px solid var(--line);
+}
+.gnode.dim { opacity: 0.35; }
+.gnode.chain .task.gcard { border-color: var(--accent); }
+
+.task .grip { flex: none; width: 10px; cursor: grab; color: var(--ant-text-tertiary); user-select: none; line-height: 20px; }
+.task .hold { font-size: 11px; color: var(--warn); margin-left: 6px; white-space: nowrap; }
+.task.held .tt { color: var(--ant-text-tertiary); }
+.task .acts { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 6px; }
+.tnode.dragging { opacity: 0.4; }
+.tnode.drop-before>.task { box-shadow: inset 0 2px 0 var(--accent); }
+.tnode.drop-after>.task { box-shadow: inset 0 -2px 0 var(--accent); }
+
+.ask {
+  border: 1px solid var(--ant-warning-border);
+  background: var(--ant-warning-bg);
+  border-radius: var(--ant-radius);
+  padding: 10px 14px;
+  font-size: 13.5px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.5;
+}
+.ask b { color: var(--ant-warning); }
+
+@media (max-width: 900px) {
+  .conv-body { flex-direction: column; }
+  .tasks { width: auto; max-height: 32vh; border-right: 0; border-bottom: 1px solid var(--line); }
+}
+@media (max-width: 720px) {
+  body.chat-on main { height: auto; }
+  .chat { grid-template-columns: 1fr; height: auto; }
+  .thread-list { max-height: 180px; }
+  .conv { height: 75vh; }
+  .msg { max-width: 100%; }
+}
+
+/* ================================================================
+   USAGE & STATS VIEW (Ant Design Cards & Tables)
+   ================================================================ */
+#view-usage {
+  padding: 0 0 28px;
+}
+
+.uhead {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin: 0 0 12px;
+  padding: 8px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--ant-radius-lg);
+  background: var(--panel);
+  box-shadow: var(--ant-shadow);
+}
+.uhead .sp { flex: 1; }
+.uhead .tabs { padding: 2px; border-radius: var(--ant-radius); }
+.uhead .tabs button { padding: 4px 12px; font-size: 13px; }
+.uhead button.small { padding: 4px 12px; font-size: 13px; height: 28px; }
+.uhead select { font-size: 13px; padding: 4px 8px; height: 28px; border-radius: var(--ant-radius); }
+.uhead .hint { font-size: 12px; }
+
+.ucards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 400px), 1fr));
+  gap: 14px;
+  align-items: stretch;
+}
+
+.ucard {
+  border: 1px solid var(--line);
+  border-radius: var(--ant-radius-lg);
+  background: var(--panel);
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  box-shadow: var(--ant-shadow);
+  transition: all 0.2s;
+}
+.ucard:hover {
+  box-shadow: var(--ant-shadow-secondary);
+}
+
+.ucard h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.uch {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.ubadge {
+  flex: none;
+  width: 38px;
+  height: 38px;
+  border-radius: var(--ant-radius);
+  display: grid;
+  place-items: center;
+  font-size: 13px;
+  font-weight: 600;
+  background: var(--bg);
+  border: 1px solid var(--ant-border);
+  color: var(--ant-text-secondary);
+}
+.ubadge.agy {
+  background: var(--ant-primary-bg);
+  color: var(--ant-primary);
+  border-color: var(--ant-primary-border);
+}
+.ubadge.claude {
+  background: #fff2e8;
+  color: #fa541c;
+  border-color: #ffbb96;
+}
+@media (prefers-color-scheme: dark) {
+  .ubadge.claude { background: #2b1d11; color: #d4380d; border-color: #5c220f; }
+}
+
+.uch .who { flex: 1; min-width: 0; }
+.uch .name { font-weight: 600; font-size: 14px; display: block; color: var(--ink); }
+.uch .mail {
+  display: block;
+  font-size: 12.5px;
+  color: var(--ant-text-tertiary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tooltag {
+  flex: none;
+  font-size: 12px;
+  color: var(--ant-text-secondary);
+  border: 1px solid var(--ant-border);
+  border-radius: var(--ant-radius-sm);
+  padding: 1px 8px;
+  background: var(--bg);
+}
+
+.uqs {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+  min-height: 120px;
+}
+.uqg { font-size: 12px; font-weight: 600; color: var(--ant-text-tertiary); margin-top: 8px; }
+.uqg:first-child { margin-top: 0; }
+.uqs .unote.foot { margin-top: auto; padding-top: 8px; }
+
+.uqr {
+  display: grid;
+  grid-template-columns: 8px 46px minmax(60px, 1fr) 42px 70px;
+  gap: 10px;
+  align-items: center;
+  font-size: 13px;
+  padding: 3px 0;
+}
+.uqr .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--live); }
+.uqr.hi .dot { background: var(--warn); }
+.uqr.over .dot { background: var(--danger); }
+.uqr .t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.uqr .ubar { margin: 0; height: 6px; }
+.uqr .p { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
+.uqr .r { text-align: right; color: var(--ant-text-tertiary); font-size: 12px; white-space: nowrap; }
+
+.unote { font-size: 12px; color: var(--ant-text-tertiary); padding: 2px 0; }
+
+.ubar {
+  height: 6px;
+  border-radius: 100px;
+  background: rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+  margin-top: 4px;
+}
+@media (prefers-color-scheme: dark) {
+  .ubar { background: rgba(255, 255, 255, 0.1); }
+}
+.ubar i {
+  display: block;
+  height: 100%;
+  border-radius: 100px;
+  background: var(--live);
+  transition: width 0.3s cubic-bezier(0.645, 0.045, 0.355, 1);
+}
+.ubar.hi i { background: var(--warn); }
+.ubar.over i { background: var(--danger); }
+
+.ust {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+}
+.ust .k { display: block; font-size: 12px; color: var(--ant-text-tertiary); }
+.ust .v {
+  display: block;
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.3;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+.ust .v small { font-size: 12px; font-weight: 400; color: var(--ant-text-tertiary); }
+.ust .s { display: block; font-size: 12px; color: var(--ant-text-tertiary); }
+
+.ufoot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  align-items: flex-start;
+  font-size: 12.5px;
+  color: var(--ant-text-tertiary);
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+}
+.ufoot .models { flex: 1; min-width: 160px; }
+.ufoot details { margin: 0; margin-left: auto; }
+.ufoot summary { font-size: 12px; }
+.ulims { display: flex; gap: 10px; margin-top: 6px; flex-wrap: wrap; }
+.ulims label { display: flex; align-items: center; gap: 6px; }
+.ulims input { flex: none; min-width: 0; width: 90px; padding: 2px 8px; font-size: 13px; height: 26px; }
+
+/* Legacy / helper usage tables and quota rows */
+.uquota {
+  grid-column: 1/-1;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 8px 20px;
+  padding: 4px 0 6px;
+}
+.uq {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 2px 10px;
+  align-items: center;
+  font-size: 13px;
+}
+.uq .t { font-weight: 600; }
+.uq .p { font-weight: 600; text-align: right; }
+.uq .r { color: var(--muted); font-size: 12px; }
+.uq .ubar { grid-column: 1/-1; height: 6px; margin: 0; }
+.uq.over .p { color: var(--danger); }
+.uq.hi .p { color: var(--warn); }
+.uqnote { grid-column: 1/-1; font-size: 12px; color: var(--muted); }
+
+.urow {
+  display: grid;
+  grid-template-columns: minmax(150px, 1.3fr) repeat(3, minmax(100px, 1fr));
+  gap: 6px 16px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--line);
+  align-items: start;
+}
+.urow:first-child { border-top: 0; }
+.urow .who { min-width: 0; }
+.urow .who .name { font-size: 15px; }
+.ucell .k { display: block; font-size: 12px; color: var(--muted); }
+.ucell .v { display: block; font-weight: 700; font-size: 18px; line-height: 1.3; }
+.ucell .s { display: block; font-size: 12px; color: var(--muted); }
+.umore {
+  grid-column: 1/-1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  align-items: center;
+  font-size: 13px;
+  color: var(--muted);
+}
+.umore .models { flex: 1; min-width: 220px; }
+.umore label { display: flex; align-items: center; gap: 6px; }
+.umore input { flex: none; min-width: 0; width: 90px; padding: 4px 8px; font-size: 13px; }
+@media (max-width: 720px) {
+  .urow { grid-template-columns: 1fr 1fr; }
+  .urow .who { grid-column: 1/-1; }
+}
+
+/* Ant Design Statistic Card (.ant-statistic) */
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.tile {
+  border: 1px solid var(--line);
+  border-radius: var(--ant-radius-lg);
+  background: var(--panel);
+  padding: 14px 18px;
+  box-shadow: var(--ant-shadow);
+}
+.tile .k {
+  display: block;
+  font-size: 12px;
+  color: var(--ant-text-tertiary);
+  font-weight: 400;
+}
+.tile .v {
+  display: block;
+  font-size: 24px;
+  font-weight: 600;
+  line-height: 1.25;
+  margin-top: 4px;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+.tile .s { display: block; font-size: 12px; color: var(--ant-text-tertiary); margin-top: 2px; }
+
+.ugrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.ugrid.even {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.chart {
+  position: relative;
+  height: 200px;
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  margin-top: 8px;
+  border-bottom: 1px solid var(--line);
+}
+.chart .gl {
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-top: 1px dashed var(--line);
+  pointer-events: none;
+}
+.chart .gl span {
+  position: absolute;
+  left: 0;
+  top: -16px;
+  font-size: 11px;
+  color: var(--ant-text-tertiary);
+  background: var(--panel);
+  padding-right: 4px;
+}
+.chart .col {
+  flex: 1;
+  height: 100%;
+  display: flex;
+  align-items: flex-end;
+  min-width: 3px;
+  position: relative;
+  z-index: 1;
+  flex-direction: column-reverse;
+  justify-content: flex-start;
+  transition: all 0.2s;
+}
+.chart .col i { display: block; width: 100%; flex: none; }
+.chart .col i+i { border-bottom: 2px solid var(--panel); }
+.chart .col i:last-child { border-radius: 2px 2px 0 0; }
+.chart .col:hover i { filter: brightness(1.15); }
+.chart .col:hover { background: var(--ant-primary-bg); }
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  font-size: 12px;
+  color: var(--ant-text-secondary);
+  margin-top: 4px;
+}
+.legend span { display: flex; align-items: center; gap: 6px; }
+.sw {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  flex: none;
+  vertical-align: -1px;
+  margin-right: 6px;
+}
+
+.xl {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--ant-text-tertiary);
+  margin-top: 6px;
+}
+
+/* Ant Design Tooltip (.ant-tooltip) */
+#u-tip {
+  position: fixed;
+  z-index: 1060;
+  pointer-events: none;
+  background: var(--ant-bg-spotlight);
+  color: #ffffff;
+  font-size: 12px;
+  line-height: 1.5;
+  padding: 6px 10px;
+  border-radius: var(--ant-radius-sm);
+  box-shadow: var(--ant-shadow-secondary);
+  opacity: 0;
+  transition: opacity 0.15s;
+  white-space: nowrap;
+}
+#u-tip .sw { width: 8px; height: 8px; margin-right: 5px; }
+#u-tip b { font-weight: 600; }
+#u-tip.show { opacity: 1; }
+
+/* Ant Design Table (.ant-table) */
+.utable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13.5px;
+}
+.utable th {
+  text-align: left;
+  color: var(--ant-text-secondary);
+  font-weight: 500;
+  font-size: 13px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--line);
+  position: sticky;
+  top: 0;
+  background: var(--bg);
+}
+.utable td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+  color: var(--ink);
+}
+.utable tr:last-child td { border-bottom: 0; }
+.utable tr:hover td { background: rgba(0, 0, 0, 0.02); }
+@media (prefers-color-scheme: dark) {
+  .utable tr:hover td { background: rgba(255, 255, 255, 0.03); }
+}
+.utable .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  font-weight: 500;
+}
+.utable .sub { display: block; font-size: 11.5px; color: var(--ant-text-tertiary); }
+.share {
+  display: block;
+  height: 4px;
+  border-radius: 100px;
+  background: var(--accent);
+  margin-top: 4px;
+  min-width: 3px;
+}
+.scroll { max-height: 360px; overflow: auto; }
+.usrc { margin-top: 10px; }
+.usrc .hint { margin: 6px 0 0; }
+
+@media (max-width: 900px) {
+  .ugrid, .ugrid.even { grid-template-columns: 1fr; }
+}
+@media (max-width: 560px) {
+  .uqr { grid-template-columns: 8px 44px minmax(40px, 1fr) 38px 60px; gap: 8px; }
+}
+
+/* ================================================================
+   ACCOUNTS & SETTINGS VIEW (Ant Design List & Form)
+   ================================================================ */
+#view-accounts {
+  padding: 0 8px 40px;
+}
+
+section { margin-top: 28px; }
+section.first { margin-top: 10px; }
+
+.now .label {
+  color: var(--ant-text-tertiary);
+  font-size: 13px;
+  margin: 0;
+}
+.now h1 {
+  font-size: clamp(22px, 4vw, 32px);
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  margin: 4px 0 6px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.now h1.off { color: var(--ant-text-quaternary); }
+.now .sub { margin: 0; color: var(--ant-text-tertiary); font-size: 13px; }
+
+.now.compact {
+  display: flex;
+  align-items: baseline;
+  gap: 6px 14px;
+  flex-wrap: wrap;
+  margin: 6px 0 14px;
+  padding: 12px 16px;
+  border-radius: var(--ant-radius-lg);
+  border: 1px solid var(--ant-primary-border);
+  background: var(--ant-primary-bg);
+}
+.now.compact h1 {
+  font-size: 18px;
+  margin: 0;
+  font-weight: 600;
+  color: var(--ant-primary);
+}
+.now.compact .label, .now.compact .sub {
+  font-size: 13px;
+  color: var(--ant-text-secondary);
+}
+
+.stabs {
+  display: inline-flex;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+  border-radius: var(--ant-radius);
+}
+
+#view-accounts section { margin-top: 24px; }
+#view-accounts section.first { margin-top: 10px; }
+
+h2 {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0 0 12px;
+  color: var(--ink);
+}
+
+.tool-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 18px;
+  align-items: start;
+}
+@media (max-width: 900px) {
+  .tool-grid { grid-template-columns: 1fr; }
+}
+
+/* Ant Design List (.ant-list) */
+.list {
+  border: 1px solid var(--line);
+  border-radius: var(--ant-radius-lg);
+  background: var(--panel);
+  overflow: hidden;
+  box-shadow: var(--ant-shadow);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  border-top: 1px solid var(--line);
+  transition: background 0.2s;
+}
+.row:first-child { border-top: 0; }
+.row:hover { background: rgba(0, 0, 0, 0.015); }
+.row.active { background: var(--ant-primary-bg); }
+
+.pick {
+  all: unset;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+  cursor: pointer;
+  padding: 2px 0;
+}
+.row.active .pick { cursor: default; }
+
+/* Ant Design Radio (.ant-radio) */
+.dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 1px solid var(--ant-border);
+  flex: none;
+  transition: all 0.2s cubic-bezier(0.645, 0.045, 0.355, 1);
+  background: var(--panel);
+}
+.pick:not(:disabled):hover .dot {
+  border-color: var(--accent);
+}
+.row.active .dot {
+  border-color: var(--accent);
+  background: radial-gradient(circle, var(--accent) 0 4px, var(--panel) 4.5px);
+}
+
+.who { min-width: 0; }
+.name { font-weight: 500; font-size: 14px; display: block; color: var(--ink); }
+.mail {
+  display: block;
+  color: var(--ant-text-tertiary);
+  font-size: 12.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tag {
+  font-size: 12px;
+  color: var(--live);
+  font-weight: 500;
+  flex: none;
+  background: var(--ant-success-bg);
+  border: 1px solid var(--ant-success-border);
+  padding: 0 7px;
+  border-radius: var(--ant-radius-sm);
+  height: 20px;
+  line-height: 18px;
+}
+
+.empty {
+  padding: 24px 16px;
+  color: var(--ant-text-tertiary);
+  text-align: center;
+  font-size: 13.5px;
+}
+
+.row select.model {
+  max-width: 170px;
+  font-size: 12.5px;
+  padding: 2px 8px;
+  height: 28px;
+  flex: none;
+  border-radius: var(--ant-radius);
+}
+
+.name .rename {
+  border: 0;
+  background: none;
+  padding: 0 6px;
+  margin-left: 4px;
+  font-size: 13px;
+  color: var(--ant-text-tertiary);
+  vertical-align: 0;
+  box-shadow: none;
+}
+.name .rename:hover { color: var(--accent); }
+.rename.solo {
+  border: 0;
+  background: none;
+  padding: 4px 8px;
+  font-size: 13px;
+  color: var(--ant-text-tertiary);
+  flex: none;
+  box-shadow: none;
+}
+.rename.solo:hover { color: var(--accent); }
+
+/* Transfer tab */
+.xfer textarea {
+  width: 100%;
+  box-sizing: border-box;
+  font-family: SFMono-Regular, Consolas, monospace;
+  font-size: 12px;
+  margin-top: 6px;
+  border-radius: var(--ant-radius);
+  background: var(--panel);
+}
+.xrow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 16px;
+  border-top: 1px solid var(--line);
+  cursor: pointer;
+  font-size: 13.5px;
+  transition: background 0.2s;
+}
+.xrow:first-child { border-top: 0; }
+.xrow:hover { background: rgba(0, 0, 0, 0.02); }
+.xrow input {
+  flex: none;
+  min-width: 0;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--accent);
+}
+.xrow .who {
+  color: var(--ant-text-tertiary);
+  font-size: 12.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.warn-box {
+  border: 1px solid var(--ant-warning-border);
+  background: var(--ant-warning-bg);
+  color: var(--ant-text);
+  border-radius: var(--ant-radius);
+  padding: 9px 14px;
+  margin-top: 18px;
+  font-size: 13px;
+}
+.rx-ok {
+  margin-top: 10px;
+  border: 1px solid var(--ant-success-border);
+  background: var(--ant-success-bg);
+  border-radius: var(--ant-radius);
+  padding: 9px 14px;
+  font-size: 13.5px;
+}
+
+/* Ant Design Modal (.ant-modal) */
+dialog.modal {
+  border: 1px solid var(--line);
+  border-radius: var(--ant-radius-lg);
+  background: var(--ant-bg-elevated);
+  color: var(--ink);
+  padding: 20px 24px;
+  width: min(420px, calc(100vw - 32px));
+  box-shadow: var(--ant-shadow-secondary);
+}
+dialog.modal::backdrop {
+  background: rgba(0, 0, 0, 0.45);
+}
+dialog.modal h3 {
+  margin: 0 0 6px;
+  font-size: 16px;
+  font-weight: 600;
+}
+dialog.modal p {
+  margin: 0 0 16px;
+  color: var(--ant-text-secondary);
+  font-size: 13.5px;
+}
+dialog.modal input {
+  width: 100%;
+  min-width: 0;
+  margin-bottom: 4px;
+}
+dialog.modal .acts {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 18px;
+  border-top: 0;
+  padding-top: 0;
+  background: transparent;
+}
+dialog.modal .acts .left { margin-right: auto; }
+
+/* Ant Design Message / Toast (.ant-message) */
+#toast {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%) translateY(10px);
+  max-width: 90vw;
+  background: var(--ant-bg-elevated);
+  color: var(--ink);
+  padding: 9px 16px;
+  border-radius: var(--ant-radius);
+  font-size: 13.5px;
+  font-weight: 400;
+  opacity: 0;
+  transition: all 0.2s cubic-bezier(0.645, 0.045, 0.355, 1);
+  pointer-events: none;
+  box-shadow: var(--ant-shadow-secondary);
+  border: 1px solid var(--line);
+  z-index: 1010;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+#toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+[hidden] { display: none !important; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    transition: none !important;
+    animation: none !important;
+  }
+}
 </style>
 </head>
 <body class="chat-on">
 <main>
   <div class="top">
     <div class="top-left">
-      <button id="side-toggle" class="small icon-btn" title="Thu gọn / mở danh sách trò chuyện" aria-expanded="true">☰</button>
+      <button id="side-toggle" class="small icon-btn" title="Thu gọn / mở danh sách trò chuyện" aria-expanded="true"><svg class="ant-icon" viewBox="0 0 1024 1024" width="14" height="14" fill="currentColor"><path d="M904 160H120c-4.4 0-8 3.6-8 8v64c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-64c0-4.4-3.6-8-8-8zm0 624H120c-4.4 0-8 3.6-8 8v64c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-64c0-4.4-3.6-8-8-8zm0-312H120c-4.4 0-8 3.6-8 8v64c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-64c0-4.4-3.6-8-8-8z"/></svg></button>
       <img class="logo" src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1NDAgMTIwIiB3aWR0aD0iNTQwIiBoZWlnaHQ9IjEyMCI+CiAgPCEtLSBOQ1QgQUkgQ29ubmVjdDogbG9nbyB04buxIHRoaeG6v3Qga+G6vyAtLT4KICA8c3ZnIHg9IjAiIHk9IjAiIHdpZHRoPSIxMjAiIGhlaWdodD0iMTIwIiB2aWV3Qm94PSIwIDAgMTIwIDEyMCI+CiAgPCEtLSBOQ1QgQUkgQ29ubmVjdDogYmnhu4N1IHTGsOG7o25nIHThu7EgdGhp4bq/dCBr4bq/IChoYWkgcm9ib3QgxJHhuq1wIHRheSB0csOqbiBk4bqjaSB2w7QgY+G7sWMpIC0tPgogIDxkZWZzPgogICAgPGxpbmVhckdyYWRpZW50IGlkPSJnYiIgeDE9IjAiIHkxPSIwIiB4Mj0iMSIgeTI9IjEiPjxzdG9wIG9mZnNldD0iMCIgc3RvcC1jb2xvcj0iIzNhYTBmZiIvPjxzdG9wIG9mZnNldD0iMSIgc3RvcC1jb2xvcj0iIzBiNGZkNiIvPjwvbGluZWFyR3JhZGllbnQ+CiAgICA8bGluZWFyR3JhZGllbnQgaWQ9ImdyIiB4MT0iMSIgeTE9IjAiIHgyPSIwIiB5Mj0iMSI+PHN0b3Agb2Zmc2V0PSIwIiBzdG9wLWNvbG9yPSIjZmY2YTVjIi8+PHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjZDAxMjFhIi8+PC9saW5lYXJHcmFkaWVudD4KICA8L2RlZnM+CiAgPCEtLSBk4bqjaSB2w7QgY+G7sWMgLS0+CiAgPHBhdGggZD0iTTYwIDg2IEM0NCA2NCAxMiA2MCA3IDgyIEMzIDEwMyAzOCAxMTAgNjAgODYiIGZpbGw9Im5vbmUiIHN0cm9rZT0idXJsKCNnYikiIHN0cm9rZS13aWR0aD0iOSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIi8+CiAgPHBhdGggZD0iTTYwIDg2IEM3NiAxMDggMTEzIDEwMyAxMTMgODIgQzExMyA2MSA3NiA2NCA2MCA4NiIgZmlsbD0ibm9uZSIgc3Ryb2tlPSJ1cmwoI2dyKSIgc3Ryb2tlLXdpZHRoPSI5IiBzdHJva2UtbGluZWNhcD0icm91bmQiLz4KICA8IS0tIGJvbmcgYsOzbmcgY2hhdCAtLT4KICA8Zz4KICAgIDxyZWN0IHg9IjEyIiB5PSI4IiB3aWR0aD0iMzAiIGhlaWdodD0iMTgiIHJ4PSI5IiBmaWxsPSIjMWY3YmZmIi8+CiAgICA8cGF0aCBkPSJNMjIgMjUgTDIwIDMyIEwyOSAyNSBaIiBmaWxsPSIjMWY3YmZmIi8+CiAgICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjE3IiByPSIyLjIiIGZpbGw9IiNmZmYiLz48Y2lyY2xlIGN4PSIyNyIgY3k9IjE3IiByPSIyLjIiIGZpbGw9IiNmZmYiLz48Y2lyY2xlIGN4PSIzNCIgY3k9IjE3IiByPSIyLjIiIGZpbGw9IiNmZmYiLz4KICA8L2c+CiAgPGc+CiAgICA8cmVjdCB4PSI3OCIgeT0iNiIgd2lkdGg9IjMwIiBoZWlnaHQ9IjE4IiByeD0iOSIgZmlsbD0iI2VmMmIyYiIvPgogICAgPHBhdGggZD0iTTk4IDIzIEwxMDAgMzAgTDkxIDIzIFoiIGZpbGw9IiNlZjJiMmIiLz4KICAgIDxjaXJjbGUgY3g9Ijg2IiBjeT0iMTUiIHI9IjIuMiIgZmlsbD0iI2ZmZiIvPjxjaXJjbGUgY3g9IjkzIiBjeT0iMTUiIHI9IjIuMiIgZmlsbD0iI2ZmZiIvPjxjaXJjbGUgY3g9IjEwMCIgY3k9IjE1IiByPSIyLjIiIGZpbGw9IiNmZmYiLz4KICA8L2c+CiAgPCEtLSB0aWEgxJHhuq1wIHRheSAtLT4KICA8cGF0aCBkPSJNNjAgMzIgVjI2IE01MiAzNSBMNDggMzEgTTY4IDM1IEw3MiAzMSIgc3Ryb2tlPSIjZmZiMDIwIiBzdHJva2Utd2lkdGg9IjIuNCIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIi8+CiAgPCEtLSByb2JvdCB4YW5oIC0tPgogIDxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDMwIDYwKSI+CiAgICA8cGF0aCBkPSJNMTEgMTQgUTI1IDQgMjggLTE1IiBmaWxsPSJub25lIiBzdHJva2U9IiMxNTY1ZTgiIHN0cm9rZS13aWR0aD0iNS41IiBzdHJva2UtbGluZWNhcD0icm91bmQiLz4KICAgIDxjaXJjbGUgY3g9IjI4LjUiIGN5PSItMTciIHI9IjQuNiIgZmlsbD0iI2ZmZiIgc3Ryb2tlPSIjMTU2NWU4IiBzdHJva2Utd2lkdGg9IjEuOCIvPgogICAgPHJlY3QgeD0iLTExIiB5PSIxMiIgd2lkdGg9IjIyIiBoZWlnaHQ9IjE2IiByeD0iNiIgZmlsbD0iI2VhZjJmZiIgc3Ryb2tlPSIjMTU2NWU4IiBzdHJva2Utd2lkdGg9IjIiLz4KICAgIDxsaW5lIHgxPSIwIiB5MT0iLTE1IiB4Mj0iMCIgeTI9Ii0yMyIgc3Ryb2tlPSIjMTU2NWU4IiBzdHJva2Utd2lkdGg9IjIuNiIvPgogICAgPGNpcmNsZSBjeD0iMCIgY3k9Ii0yNSIgcj0iMy42IiBmaWxsPSIjM2FhMGZmIi8+CiAgICA8Y2lyY2xlIGN4PSItMTgiIGN5PSItMSIgcj0iNC42IiBmaWxsPSIjZWFmMmZmIiBzdHJva2U9IiMxNTY1ZTgiIHN0cm9rZS13aWR0aD0iMiIvPgogICAgPGNpcmNsZSBjeD0iMTgiIGN5PSItMSIgcj0iNC42IiBmaWxsPSIjZWFmMmZmIiBzdHJva2U9IiMxNTY1ZTgiIHN0cm9rZS13aWR0aD0iMiIvPgogICAgPHJlY3QgeD0iLTE3IiB5PSItMTYiIHdpZHRoPSIzNCIgaGVpZ2h0PSIyOSIgcng9IjExIiBmaWxsPSJ1cmwoI2diKSIvPgogICAgPHJlY3QgeD0iLTEyLjUiIHk9Ii0xMCIgd2lkdGg9IjI1IiBoZWlnaHQ9IjE2IiByeD0iNy41IiBmaWxsPSIjMGQxYTMzIi8+CiAgICA8cGF0aCBkPSJNLTguNSAtMSBxMyAtNC4yIDYgMCBNMi41IC0xIHEzIC00LjIgNiAwIiBmaWxsPSJub25lIiBzdHJva2U9IiM1ZmU2ZmYiIHN0cm9rZS13aWR0aD0iMi4zIiBzdHJva2UtbGluZWNhcD0icm91bmQiLz4KICA8L2c+CiAgPCEtLSByb2JvdCDEkeG7jyAtLT4KICA8ZyB0cmFuc2Zvcm09InRyYW5zbGF0ZSg5MCA2MCkiPgogICAgPHBhdGggZD0iTS0xMSAxNCBRLTI1IDQgLTI4IC0xNSIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZDQxZjI0IiBzdHJva2Utd2lkdGg9IjUuNSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIi8+CiAgICA8Y2lyY2xlIGN4PSItMjguNSIgY3k9Ii0xNyIgcj0iNC42IiBmaWxsPSIjZmZmIiBzdHJva2U9IiNkNDFmMjQiIHN0cm9rZS13aWR0aD0iMS44Ii8+CiAgICA8cmVjdCB4PSItMTEiIHk9IjEyIiB3aWR0aD0iMjIiIGhlaWdodD0iMTYiIHJ4PSI2IiBmaWxsPSIjZmZmMGVmIiBzdHJva2U9IiNkNDFmMjQiIHN0cm9rZS13aWR0aD0iMiIvPgogICAgPGxpbmUgeDE9IjAiIHkxPSItMTUiIHgyPSIwIiB5Mj0iLTIzIiBzdHJva2U9IiNkNDFmMjQiIHN0cm9rZS13aWR0aD0iMi42Ii8+CiAgICA8Y2lyY2xlIGN4PSIwIiBjeT0iLTI1IiByPSIzLjYiIGZpbGw9IiNmZjZhNWMiLz4KICAgIDxjaXJjbGUgY3g9Ii0xOCIgY3k9Ii0xIiByPSI0LjYiIGZpbGw9IiNmZmYwZWYiIHN0cm9rZT0iI2Q0MWYyNCIgc3Ryb2tlLXdpZHRoPSIyIi8+CiAgICA8Y2lyY2xlIGN4PSIxOCIgY3k9Ii0xIiByPSI0LjYiIGZpbGw9IiNmZmYwZWYiIHN0cm9rZT0iI2Q0MWYyNCIgc3Ryb2tlLXdpZHRoPSIyIi8+CiAgICA8cmVjdCB4PSItMTciIHk9Ii0xNiIgd2lkdGg9IjM0IiBoZWlnaHQ9IjI5IiByeD0iMTEiIGZpbGw9InVybCgjZ3IpIi8+CiAgICA8cmVjdCB4PSItMTIuNSIgeT0iLTEwIiB3aWR0aD0iMjUiIGhlaWdodD0iMTYiIHJ4PSI3LjUiIGZpbGw9IiMyYTBkMTAiLz4KICAgIDxwYXRoIGQ9Ik0tOC41IC0xIHEzIC00LjIgNiAwIE0yLjUgLTEgcTMgLTQuMiA2IDAiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI2ZmYjNhOCIgc3Ryb2tlLXdpZHRoPSIyLjMiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPgogIDwvZz4KPC9zdmc+CiAgPHRleHQgeD0iMTMwIiB5PSI3NyIgZm9udC1mYW1pbHk9IidBcmlhbCBCbGFjaycsJ1NlZ29lIFVJIEJsYWNrJywnU2Vnb2UgVUknLEFyaWFsLHNhbnMtc2VyaWYiIGZvbnQtd2VpZ2h0PSI5MDAiIGZvbnQtc2l6ZT0iMzgiIGxldHRlci1zcGFjaW5nPSIwLjUiPjx0c3BhbiBmaWxsPSIjMTQ2MmU4Ij5OQ1QgPC90c3Bhbj48dHNwYW4gZmlsbD0iI2UzMjYyYyI+QUk8L3RzcGFuPjx0c3BhbiBmaWxsPSIjMTQ2MmU4Ij4gQ09OTkVDVDwvdHNwYW4+PC90ZXh0Pgo8L3N2Zz4K" alt="NCT AI Connect" width="162" height="36">
       <div class="tabs" role="tablist">
         <button role="tab" data-tab="chat" aria-selected="true">Chat</button>
@@ -3936,7 +5679,7 @@ dialog.modal .acts .left{margin-right:auto}
               <button role="tab" data-mode="tree" aria-selected="false">Cây task Bố–Con</button>
             </div>
             <span class="head-summary" id="head-summary" hidden></span>
-            <button id="head-toggle" class="small" aria-expanded="true" title="Thu gọn / mở phần cấu hình">Thu gọn ▴</button>
+            <button id="head-toggle" class="small" aria-expanded="true" title="Thu gọn / mở phần cấu hình"><span>Thu gọn</span> <svg class="ant-icon" viewBox="64 64 896 896" width="11" height="11" fill="currentColor"><path d="M890.5 755.3L537.9 269.2c-12.8-17.6-39-17.6-51.7 0L133.5 755.3A8 8 0 00140 768h75c5.1 0 9.9-2.5 12.9-6.6L512 369.8l284.1 391.6c3 4.1 7.8 6.6 12.9 6.6h75c6.5 0 10.3-7.4 6.5-12.7z"/></svg></button>
           </div>
           <div class="head-row" id="p-row" hidden>
             <span class="role-tag parent">Bố</span>
@@ -3993,7 +5736,7 @@ dialog.modal .acts .left{margin-right:auto}
           <input type="file" id="c-file" multiple hidden>
           <textarea id="c-input" rows="2" placeholder="Giao việc hoặc hỏi… (Enter để gửi, Shift+Enter để xuống dòng)"></textarea>
           <div class="composer-bar">
-            <button id="c-attach" class="small" title="Đính kèm ảnh / file (có thể kéo thả hoặc dán ảnh bằng Ctrl+V)">📎 Đính kèm</button>
+            <button id="c-attach" class="small" title="Đính kèm ảnh / file (có thể kéo thả hoặc dán ảnh bằng Ctrl+V)"><svg class="ant-icon" viewBox="0 0 1024 1024" width="14" height="14" fill="currentColor"><path d="M779.3 196.6c-94.2-94.2-247-94.2-341.3 0L193.3 441.3c-74.9 74.9-74.9 196.4 0 271.3 74.9 74.9 196.4 74.9 271.3 0l226.7-226.7c8.3-8.3 8.3-21.8 0-30.2s-21.8-8.3-30.2 0L434.4 682.4c-58.3 58.3-152.8 58.3-211.1 0-58.3-58.3-58.3-152.8 0-211.1L468 226.7c77.7-77.7 203.7-77.7 281.4 0 77.7 77.7 77.7 203.7 0 281.4L504.7 752.8c-38.9 38.9-102 38.9-140.9 0-38.9-38.9-38.9-102 0-140.9l212.1-212.1c8.3-8.3 8.3-21.8 0-30.2s-21.8-8.3-30.2 0L333.6 581.7c-55.6 55.6-55.6 145.7 0 201.3 55.6 55.6 145.7 55.6 201.3 0l244.4-244.4c94.2-94.2 94.2-247 0-341.3z"/></svg> <span>Đính kèm</span></button>
             <span class="hint" id="c-hint" style="margin:0;flex:1"></span>
             <button id="c-history" class="small" title="Mở file lịch sử chung của cuộc trò chuyện này">Lịch sử chung</button>
             <button id="c-clear-proj" class="small" title="Xóa các file lịch sử chat trong .ai-history của thư mục đang chọn">Xóa lịch sử trong project</button>
@@ -4169,13 +5912,30 @@ dialog.modal .acts .left{margin-right:auto}
 <div id="toast" role="status"></div>
 
 <script>
+
+// Monochromatic Ant Design Icons (SVG currentColor)
+const ICON_MENU = '<svg class="ant-icon" viewBox="0 0 1024 1024" width="14" height="14" fill="currentColor"><path d="M904 160H120c-4.4 0-8 3.6-8 8v64c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-64c0-4.4-3.6-8-8-8zm0 624H120c-4.4 0-8 3.6-8 8v64c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-64c0-4.4-3.6-8-8-8zm0-312H120c-4.4 0-8 3.6-8 8v64c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-64c0-4.4-3.6-8-8-8z"/></svg>';
+const ICON_PLUS = '<svg class="ant-icon" viewBox="64 64 896 896" width="12" height="12" fill="currentColor"><path d="M482 152h60q8 0 8 8v704q0 8-8 8h-60q-8 0-8-8V160q0-8 8-8z"/><path d="M176 474h672q8 0 8 8v60q0 8-8 8H176q-8 0-8-8v-60q0-8 8-8z"/></svg>';
+const ICON_ATTACH = '<svg class="ant-icon" viewBox="0 0 1024 1024" width="14" height="14" fill="currentColor"><path d="M779.3 196.6c-94.2-94.2-247-94.2-341.3 0L193.3 441.3c-74.9 74.9-74.9 196.4 0 271.3 74.9 74.9 196.4 74.9 271.3 0l226.7-226.7c8.3-8.3 8.3-21.8 0-30.2s-21.8-8.3-30.2 0L434.4 682.4c-58.3 58.3-152.8 58.3-211.1 0-58.3-58.3-58.3-152.8 0-211.1L468 226.7c77.7-77.7 203.7-77.7 281.4 0 77.7 77.7 77.7 203.7 0 281.4L504.7 752.8c-38.9 38.9-102 38.9-140.9 0-38.9-38.9-38.9-102 0-140.9l212.1-212.1c8.3-8.3 8.3-21.8 0-30.2s-21.8-8.3-30.2 0L333.6 581.7c-55.6 55.6-55.6 145.7 0 201.3 55.6 55.6 145.7 55.6 201.3 0l244.4-244.4c94.2-94.2 94.2-247 0-341.3z"/></svg>';
+const ICON_DOWN = '<svg class="ant-icon" viewBox="64 64 896 896" width="11" height="11" fill="currentColor"><path d="M884 256h-75c-5.1 0-9.9 2.5-12.9 6.6L512 654.2 227.9 262.6c-3-4.1-7.8-6.6-12.9-6.6h-75c-6.5 0-10.3 7.4-6.5 12.7l352.6 486.1c12.8 17.6 39 17.6 51.7 0l352.6-486.1c3.9-5.3.1-12.7-6.4-12.7z"/></svg>';
+const ICON_UP = '<svg class="ant-icon" viewBox="64 64 896 896" width="11" height="11" fill="currentColor"><path d="M890.5 755.3L537.9 269.2c-12.8-17.6-39-17.6-51.7 0L133.5 755.3A8 8 0 00140 768h75c5.1 0 9.9-2.5 12.9-6.6L512 369.8l284.1 391.6c3 4.1 7.8 6.6 12.9 6.6h75c6.5 0 10.3-7.4 6.5-12.7z"/></svg>';
+const ICON_COPY = '<svg class="ant-icon" viewBox="64 64 896 896" width="13" height="13" fill="currentColor"><path d="M832 64H296c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h496v496c0 4.4 3.6 8 8 8h56c4.4 0 8-3.6 8-8V104c0-22.1-17.9-40-40-40zM704 192H192c-17.7 0-32 14.3-32 32v672c0 17.7 14.3 32 32 32h512c17.7 0 32-14.3 32-32V224c0-17.7-14.3-32-32-32zm-40 664H232V264h432v592z"/></svg>';
+const ICON_CHECK = '<svg class="ant-icon" viewBox="64 64 896 896" width="13" height="13" fill="currentColor"><path d="M912 190h-69.9c-9.8 0-19.1 4.5-25.1 12.2L404.7 724.5 207 474a32 32 0 00-25.1-12.2H112c-6.7 0-10.4 7.7-6.3 12.9l273.9 347c12.8 16.2 37.4 16.2 50.3 0l488.4-618.8c4.1-5.1.4-12.9-6.3-12.9z"/></svg>';
+const ICON_EDIT = '<svg class="ant-icon" viewBox="64 64 896 896" width="12" height="12" fill="currentColor"><path d="M257.7 752c2 0 4-.2 6-.5L417.4 723c3.7-.6 7.1-2.4 9.8-5.1L835.4 310c6.2-6.2 6.2-16.4 0-22.6L670.6 122.6c-6.2-6.2-16.4-6.2-22.6 0L240.8 530.8c-2.7 2.7-4.5 6.1-5.1 9.8L206.5 694c-1.3 7.7 4.8 14 12.5 14h38.7zm71.7-159.9l365-365 45.3 45.3-365 365-45.3-45.3zM880 836H144c-17.7 0-32 14.3-32 32v36c0 4.4 3.6 8 8 8h760c4.4 0 8-3.6 8-8v-36c0-17.7-14.3-32-32-32z"/></svg>';
+const ICON_CLOSE = '<svg class="ant-icon" viewBox="64 64 896 896" width="10" height="10" fill="currentColor"><path d="M563.8 512l262.5-262.5c4.2-4.2 4.2-11 0-15.2l-36.6-36.6c-4.2-4.2-11-4.2-15.2 0L512 460.2 249.5 197.7c-4.2-4.2-11-4.2-15.2 0l-36.6 36.6c-4.2 4.2-4.2 11 0 15.2L460.2 512 197.7 774.5c-4.2 4.2-4.2 11 0 15.2l36.6 36.6c4.2 4.2 11 4.2 15.2 0L512 563.8l262.5 262.5c4.2 4.2 11 4.2 15.2 0l36.6-36.6c4.2-4.2 4.2-11 0-15.2L563.8 512z"/></svg>';
+const ICON_GRIP = '<svg class="ant-icon grip-icon" viewBox="0 0 1024 1024" width="12" height="12" fill="currentColor"><path d="M384 192a64 64 0 100-128 64 64 0 000 128zm256 0a64 64 0 100-128 64 64 0 000 128zm-256 320a64 64 0 100-128 64 64 0 000 128zm256 0a64 64 0 100-128 64 64 0 000 128zm-256 320a64 64 0 100-128 64 64 0 000 128zm256 0a64 64 0 100-128 64 64 0 000 128z"/></svg>';
+const ICON_TARGET = '<svg class="ant-icon" viewBox="64 64 896 896" width="13" height="13" fill="currentColor"><path d="M512 128C300 128 128 300 128 512s172 384 384 384 384-172 384-384-172-384-384-384zm0 704c-176.7 0-320-143.3-320-320s143.3-320 320-320 320 143.3 320 320-143.3 320-320 320zm0-512c-106 0-192 86-192 192s86 192 192 192 192-86 192-192-86-192-192-192zm0 320c-70.7 0-128-57.3-128-128s57.3-128 128-128 128 57.3 128 128-57.3 128-128 128z"/></svg>';
+const ICON_RELOAD = '<svg class="ant-icon" viewBox="64 64 896 896" width="11" height="11" fill="currentColor"><path d="M784.7 448h-80.4c-8.6 0-16.1 5.6-18.4 13.9C665.2 537 600.4 590 512 590c-99.4 0-180-80.6-180-180s80.6-180 180-180c49.1 0 93.6 19.8 126 51.7l-60.8 60.8a8.03 8.03 0 005.7 13.7H812c4.4 0 8-3.6 8-8V219.5c0-7.1-8.6-10.7-13.7-5.7l-49.9 49.9C707.3 216 614.9 186 512 186c-180 0-326 146-326 326s146 326 326 326c141.6 0 263.1-90.1 308.7-216.7 2.3-6.4-2.5-13.3-9-13.3z"/></svg>';
+const ICON_STEP_FORWARD = '<svg class="ant-icon" viewBox="64 64 896 896" width="11" height="11" fill="currentColor"><path d="M744 192a16 16 0 00-16 16v249.7L315.7 197.8A16 16 0 00288 211.5v601a16 16 0 0027.7 13.7L728 566.3V816a16 16 0 0016 16h48a16 16 0 0016-16V208a16 16 0 00-16-16h-44z"/></svg>';
+const ICON_PAUSE = '<svg class="ant-icon" viewBox="64 64 896 896" width="11" height="11" fill="currentColor"><path d="M512 64C264.6 64 64 264.6 64 512s200.6 448 448 448 448-200.6 448-448S759.4 64 512 64zm-80 576c0 8.8-7.2 16-16 16h-48c-8.8 0-16-7.2-16-16V384c0-8.8 7.2-16 16-16h48c8.8 0 16 7.2 16 16v256zm224 0c0 8.8-7.2 16-16 16h-48c-8.8 0-16-7.2-16-16V384c0-8.8 7.2-16 16-16h48c8.8 0 16 7.2 16 16v256z"/></svg>';
+
 const $ = s => document.querySelector(s);
 // ---- đa ngôn ngữ: tiếng Việt là gốc; EN dịch theo nguyên câu (đã gộp khoảng trắng).
 // Chuỗi tĩnh trên trang được dịch tự động; chuỗi có biến dùng t('… {0} …', biến). Đổi ngôn ngữ thì tải lại trang.
 let LANG = 'vi';
 try { LANG = localStorage.getItem('nguyen-swap-lang') === 'en' ? 'en' : 'vi'; } catch (e) {}
 const LOC = LANG === 'en' ? 'en-US' : 'vi-VN';
-const EN = {"Mục cài đặt": "Settings sections", "Tài khoản": "Accounts", "Chuyển sang máy khác": "Move to another machine", "Công cụ agy": "agy tools", "Lịch sử": "History", "Đã đăng nhập ở máy khác? Dùng tab": "Already signed in on another machine? Use the", "để nhập luôn, không cần đăng nhập lại.": "tab to import it without signing in again.", "Xuất đăng nhập (máy đang dùng)": "Export sign-ins (this machine)", "Chọn tài khoản và đặt mật khẩu: app tạo một chuỗi đã mã hóa để dán sang máy khác. Ai có cả chuỗi lẫn mật khẩu là dùng được các tài khoản này: giữ kín, gửi mật khẩu bằng đường khác với chuỗi.": "Pick accounts and set a password: the app creates an encrypted string to paste on another machine. Anyone with both the string and the password can use these accounts: keep them private and send the password separately from the string.", "Mật khẩu cho chuỗi (ít nhất 6 ký tự)": "Password for the string (at least 6 characters)", "Tạo chuỗi": "Create string", "Sao chép chuỗi": "Copy string", "Nhập đăng nhập (máy mới)": "Import sign-ins (new machine)", "Dán chuỗi NCTAI1:… từ máy kia": "Paste the NCTAI1:… string from the other machine", "Mật khẩu của chuỗi": "Password of the string", "Nhập tài khoản": "Import accounts", "Tài khoản đã có trên máy này (cùng email) thì được cập nhật; trùng tên với tài khoản khác thì thêm hậu tố -2, -3. Model và tên hiển thị đi kèm.": "Accounts already on this machine (same email) are updated; a name clash with a different account gets a -2, -3 suffix. Model and display name come along.", "Lưu ý: Claude Code và Codex tự đổi token định kỳ. Dùng cùng một tài khoản trên 2 máy cùng lúc thì đôi khi một máy bị đăng xuất: khi đó xuất lại từ máy còn chạy, hoặc đăng nhập riêng trên máy kia.": "Note: Claude Code and Codex rotate tokens periodically. Using one account on 2 machines at the same time can sometimes sign one of them out: then export again from the working machine, or sign in separately on the other one.", "Chưa có tài khoản nào đã đăng nhập để xuất.": "No signed-in accounts to export.", "{0} tài khoản · máy kia cần mật khẩu bạn vừa đặt": "{0} accounts · the other machine needs the password you just set", "Đã nhập {0} tài khoản:": "Imported {0} accounts:", "Đã nhập {0} tài khoản": "Imported {0} accounts", "đang dùng trên máy này, giữ nguyên": "in use on this machine, kept as is", "Bấm Ctrl+C để sao chép.": "Press Ctrl+C to copy.", "Chọn ít nhất một tài khoản để xuất.": "Pick at least one account to export.", "Đặt mật khẩu cho chuỗi (ít nhất 6 ký tự). Máy kia cần mật khẩu này để nhập.": "Set a password for the string (at least 6 characters). The other machine needs it to import.", "Sai mật khẩu, hoặc chuỗi bị sửa / thiếu.": "Wrong password, or the string was altered / truncated.", "Chuỗi không đúng định dạng (phải bắt đầu bằng NCTAI1:).": "Invalid string (it must start with NCTAI1:).", "Chuỗi bị lỗi hoặc bị cắt mất một phần.": "The string is broken or truncated.", "Chuỗi không có tài khoản nào nhập được.": "The string has no importable accounts.", "Bố cần bạn trả lời {0} câu hỏi trước khi duyệt": "Parent needs your answers to {0} questions before approval", "Trả lời hết một lần để Con làm một mạch, không phải dừng giữa chừng hỏi lại. Mẫu trả lời đã điền sẵn ở ô bên dưới: điền tiếp rồi bấm \"Gửi cho Bố\".": "Answer them all at once so Child can work straight through without stopping to ask. An answer template is filled in below: complete it and press \"Send to Parent\".", "Điền lại mẫu trả lời": "Refill answer template", "Bỏ qua câu hỏi, duyệt luôn": "Skip questions, approve anyway", "Trả lời các câu hỏi của Bố:": "Answers to Parent's questions:", "Trả lời:": "Answer:", "Duyệt kế hoạch khi Bố còn câu hỏi chưa trả lời? Con sẽ tự chọn cách hợp lý cho các điểm chưa rõ.": "Approve while Parent still has unanswered questions? Child will choose reasonable defaults for unclear points.", "Bố còn câu hỏi chưa được trả lời. Hãy trả lời cho Bố trước (hoặc bấm \"Bỏ qua câu hỏi, duyệt luôn\").": "Parent still has unanswered questions. Answer Parent first (or press \"Skip questions, approve anyway\").", "Kết quả dự kiến": "Expected result", "Bố chưa ghi kết quả dự kiến của kế hoạch. Nên gửi cho Bố: \"Bổ sung kết quả dự kiến\" trước khi duyệt.": "Parent has not stated the expected result of the plan. Send Parent: \"Add the expected results\" before approving.", "Cần xong trước": "Must finish first", "Task đang chọn": "Selected task", "Nối đuôi phía sau": "Follows after", "Task bên dưới phải chờ task nối phía trên xong (nét đứt: cũng chờ). Kéo thẻ sang trái / phải để đổi ưu tiên (trái = làm trước). Bấm một thẻ để xem chi tiết, Để cuối / Tạm hoãn.": "A task waits for the task linked above it (dashed: also waits). Drag cards left / right to change priority (left = first). Click a card for details, Run last / Hold.", "Bấm vào một task trên sơ đồ để xem chi tiết.": "Click a task in the diagram to see its details.", "Kéo để đổi độ rộng (bấm đúp: về mặc định)": "Drag to resize (double-click: reset)", "Cách xem kế hoạch": "Plan view", "Danh sách": "List", "Cây": "Tree", "Kéo ⠿ để đổi ưu tiên (trên = làm trước). Không kéo được task lên trước task nó phải chờ. Mở task để Để cuối / Tạm hoãn.": "Drag ⠿ to change priority (top = first). A task can't move above a task it waits for. Open a task to Run last / Hold.", "Kéo ⠿ để đổi ưu tiên (trên = làm trước). Task thụt vào phải chờ task phía trên nó xong. Mở task để Để cuối / Tạm hoãn.": "Drag ⠿ to change priority (top = first). Indented tasks wait for the task above them. Open a task to Run last / Hold.", "Kéo để đổi ưu tiên": "Drag to change priority", "để cuối": "run last", "tạm hoãn": "on hold", "chờ task hoãn": "waits for held task", "Cũng chờ task": "Also waits for task", "{0} task làm song song được": "{0} tasks can run in parallel", "Bỏ hoãn": "Release", "Để cuối": "Run last", "Tạm hoãn": "Hold", "Các task còn lại đang tạm hoãn. Bấm \"Bỏ hoãn\" ở task muốn chạy.": "The remaining tasks are on hold. Click \"Release\" on a task to run it.", "Bố ({0}) đang cập nhật kế hoạch theo câu trả lời của bạn…": "Parent ({0}) is updating the plan from your answer…", "Bố · cập nhật kế hoạch": "Parent · updating plan", "Thu gọn / mở danh sách trò chuyện": "Collapse / expand conversation list", "Mức sử dụng": "Usage", "Cài đặt": "Settings", "Tắt server": "Stop server", "Ngôn ngữ": "Language", "Cuộc trò chuyện mới": "New conversation", "Chưa có cuộc trò chuyện nào.": "No conversations yet.", "Xóa cuộc trò chuyện": "Delete conversation", "(trống)": "(empty)", "chat riêng": "private chat", "Cây task · {0}/{1} xong": "Task tree · {0}/{1} done", "Chế độ": "Mode", "Chat thường": "Chat", "Cây task Bố–Con": "Parent–Child tasks", "Thu gọn / mở phần cấu hình": "Collapse / expand settings", "Thu gọn ▴": "Collapse ▴", "Mở rộng ▾": "Expand ▾", "Bố": "Parent", "Con": "Child", "Bố làm": "Parent works", "Bố: ": "Parent: ", "Con: ": "Child: ", "Bố: ai lập kế hoạch": "Parent: who plans", "Model của Bố": "Parent's model", "Effort của Bố": "Parent's effort", "Mức suy nghĩ: cao hơn thì kỹ hơn nhưng chậm và tốn hạn mức hơn": "Thinking effort: higher is more thorough but slower and uses more quota", "Effort mặc định": "Default effort", "Effort: thấp": "Effort: low", "Effort: vừa": "Effort: medium", "Effort: cao": "Effort: high", "Effort: rất cao": "Effort: very high", "Effort: tối đa": "Effort: max", "chỉ đọc, lập kế hoạch": "read-only, plans", "lập kế hoạch rồi tự làm": "plans, then does the work", "Ai làm việc": "Who works", "Quyền": "Permission", "Chỉ đọc, trả lời": "Read-only, answer", "Được sửa file": "Can edit files", "Toàn quyền (chạy lệnh)": "Full access (run commands)", "Làm việc trong": "Work in", "Thư mục chat riêng (để trống), hoặc dán đường dẫn: C:\\code\\du-an": "Private chat folder (leave empty), or paste a path: C:\\code\\my-project", "Chọn…": "Browse…", "Cách làm": "Workflow", "Bố lập kế hoạch → bạn xác nhận → Con làm": "Parent plans → you confirm → Child works", "Bố lập kế hoạch → Con tự làm luôn": "Parent plans → Child works right away", "Bố lập kế hoạch và tự làm": "Parent plans and does the work", "Con lập kế hoạch và tự làm": "Child plans and does the work", "Bố lập kế hoạch, chờ xác nhận": "Parent plans, waits for confirmation", "Bố lập kế hoạch, Con tự làm": "Parent plans, Child works", "Bố lập kế hoạch và làm": "Parent plans and works", "Con lập kế hoạch và làm": "Child plans and works", "chỉ đọc và trả lời": "read-only, answers", "được sửa file": "can edit files", "toàn quyền, kể cả chạy lệnh": "full access, including running commands", "thư mục chat riêng": "the private chat folder", "Bố ({0}) lập kế hoạch rồi tự làm trong {1}, {2}.": "Parent ({0}) plans, then works in {1}, {2}.", "Con ({0}) lập kế hoạch rồi tự làm trong {1}, {2}.": "Child ({0}) plans, then works in {1}, {2}.", "Bố ({0}) chỉ đọc và lập kế hoạch · Con ({1}) làm trong {2}, {3}, sau khi bạn bấm \"Con bắt đầu làm\".": "Parent ({0}) is read-only and plans · Child ({1}) works in {2}, {3}, after you press \"Child starts\".", "Bố ({0}) chỉ đọc và lập kế hoạch · Con ({1}) làm trong {2}, {3}, tự làm ngay khi có kế hoạch.": "Parent ({0}) is read-only and plans · Child ({1}) works in {2}, {3}, as soon as there is a plan.", "{0} sẽ làm việc trong {1}, {2}.": "{0} will work in {1}, {2}.", "Kế hoạch": "Plan", "Kế hoạch · {0}/{1} xong": "Plan · {0}/{1} done", "Giao việc hoặc hỏi… (Enter để gửi, Shift+Enter để xuống dòng)": "Give a task or ask… (Enter to send, Shift+Enter for a new line)", "Trả lời câu hỏi của Con… Bố sẽ phân tích và cập nhật kế hoạch (Enter để gửi)": "Answer Child's question… Parent will analyse it and update the plan (Enter to send)", "Mô tả việc cần làm, hoặc góp ý kế hoạch… Bố sẽ chia thành các task chi tiết cho Con (Enter để gửi)": "Describe the work, or give feedback on the plan… Parent will split it into detailed tasks for Child (Enter to send)", "Đính kèm ảnh / file (có thể kéo thả hoặc dán ảnh bằng Ctrl+V)": "Attach images / files (drag and drop, or paste images with Ctrl+V)", "📎 Đính kèm": "📎 Attach", "lỗi": "error", "Mở file lịch sử chung của cuộc trò chuyện này": "Open this conversation's shared history file", "Lịch sử chung": "Shared history", "Xóa các file lịch sử chat trong .ai-history của thư mục đang chọn": "Delete the chat history files in .ai-history of the selected folder", "Xóa lịch sử trong project": "Clear project history", "Gửi": "Send", "Gửi cho Bố": "Send to Parent", "Dừng": "Stop", "Bố (model mạnh, chỉ đọc) phân tích yêu cầu và chia thành các task chi tiết. Con (model rẻ hơn) đọc và làm lần lượt từng task. Task nào cần bạn xác nhận thì Con dừng lại và hỏi: bạn trả lời cho Bố, Bố cập nhật kế hoạch, rồi Con làm tiếp. Mô tả việc cần làm rồi bấm \"Gửi cho Bố\".": "Parent (strong model, read-only) analyses the request and splits it into detailed tasks. Child (cheaper model) does the tasks one by one. When a task needs your confirmation, Child stops and asks: you answer Parent, Parent updates the plan, then Child continues. Describe the work, then press \"Send to Parent\".", "Chọn ai làm việc (một tài khoản Antigravity, Claude Code hoặc Codex), chọn model và thư mục làm việc, rồi nhắn việc cần làm. Các tin sau nối tiếp cùng phiên. Mỗi tin chạy ở chế độ không tương tác nên không thể hỏi lại bạn giữa chừng: muốn nó sửa code thì đặt quyền \"Được sửa file\".": "Pick who works (an Antigravity, Claude Code or Codex account), the model and the working folder, then describe the task. Later messages continue the same session. Each message runs non-interactively, so it cannot ask you anything mid-way: to let it change code, set the permission to \"Can edit files\".", "Chưa làm": "To do", "Con đang làm": "Child is working", "Xong": "Done", "Cần xác nhận": "Needs confirmation", "Bỏ qua": "Skip", "Làm lại": "Redo", "Con báo:": "Child reported:", "Con bắt đầu làm": "Child starts", "Con làm tiếp": "Child continues", "Bố bắt đầu làm": "Parent starts", "Bố làm tiếp": "Parent continues", "Chưa có task nào. Bố sẽ lập danh sách task khi trả lời.": "No tasks yet. Parent will create the task list when it replies.", "Con cần bạn xác nhận ở task #{0}:": "Child needs your confirmation on task #{0}:", "Mẫu trả lời đã được điền sẵn ở ô bên dưới: điền tiếp rồi bấm \"Gửi cho Bố\". Bố phân tích, cập nhật task cho rõ, rồi Con tự làm tiếp.": "An answer template is filled in below: complete it, then press \"Send to Parent\". Parent analyses it, clarifies the tasks, then Child continues automatically.", "Mẫu trả lời đã được điền sẵn ở ô bên dưới: điền tiếp rồi bấm \"Gửi cho Bố\". Bố phân tích, cập nhật task cho rõ, rồi bấm \"Con làm tiếp\".": "An answer template is filled in below: complete it, then press \"Send to Parent\". Parent analyses it and clarifies the tasks, then press \"Child continues\".", "Điền lại mẫu trả lời": "Refill answer template", "Trả lời câu hỏi của Con ở task #{0}": "Answer to Child's question on task #{0}", "(Danh sách task: xem bảng kế hoạch phía trên.)": "(Task list: see the plan panel.)", "Tổng kết sau khi Con làm": "Summary after Child worked", "Bố đã trả lời.": "Parent replied.", "Bố đã cập nhật kế hoạch: {0}/{1} task xong": "Parent updated the plan: {0}/{1} tasks done", "Con đã dừng: {0}/{1} task xong": "Child stopped: {0}/{1} tasks done", ". Xem kết quả và câu hỏi (nếu có) trong cuộc trò chuyện.": ". See the results and any questions in the conversation.", ". Đã xong toàn bộ kế hoạch.": ". The whole plan is done.", "Chọn trợ lý cho cả Bố và Con.": "Pick an assistant for both Parent and Child.", "Tối đa 10 file mỗi tin nhắn.": "At most 10 files per message.", "{0}: quá lớn (tối đa 25 MB).": "{0}: too large (max 25 MB).", "Đợi tải file lên xong rồi gửi.": "Wait for the uploads to finish, then send.", "Xem file đính kèm.": "See the attached files.", "Chưa có ai để chat: thêm tài khoản agy, hoặc cài Claude Code / Codex.": "No one to chat with: add an agy account, or install Claude Code / Codex.", "Hạn mức": "Quotas", "Thống kê": "Statistics", "Lọc theo công cụ": "Filter by tool", "Tất cả công cụ": "All tools", "Khoảng thời gian": "Time range", "Hôm nay": "Today", "24 giờ": "24 hours", "7 ngày": "7 days", "30 ngày": "30 days", "Làm mới": "Refresh", "Đang tính…": "Calculating…", "Token theo giờ": "Tokens per hour", "Token theo ngày": "Tokens per day", "Lượt gần đây": "Recent calls", "Theo tài khoản": "By account", "Theo model": "By model", "Số liệu lấy từ đâu?": "Where does this data come from?", "Hạn mức chính thức (% đã dùng, giờ đặt lại): agy lấy từ lệnh /usage (chỉ đọc được tài khoản đang dùng), Codex từ lượt chạy gần nhất, Claude Code từ cùng nguồn với lệnh /usage (dùng token đăng nhập trên máy, chỉ gửi tới api.anthropic.com).": "Official quotas (% used, reset time): agy from its /usage command (only the active account can be read), Codex from its latest run, Claude Code from the same source as its /usage command (uses the login token on this machine, sent only to api.anthropic.com).", "Token = đầu vào + đầu ra + ghi cache; đọc cache ghi riêng vì rẻ hơn nhiều. Claude Code: đọc từ lịch sử phiên trên máy này, tính cả lúc dùng ngoài Nguyên Swap. agy và Codex: chỉ tính các lượt chạy qua Nguyên Swap. Giới hạn ngày / tuần theo token là con số bạn tự đặt để theo dõi (ví dụ 5M, 200K).": "Tokens = input + output + cache writes; cache reads are listed separately because they are much cheaper. Claude Code: read from session history on this machine, including use outside Nguyên Swap. agy and Codex: only runs made through Nguyên Swap. Daily / weekly token limits are numbers you set yourself for tracking (e.g. 5M, 200K).", "5 giờ": "5 hours", "Tuần": "Week", "Ngày": "Day", "5 giờ qua": "Last 5 hours", "7 ngày qua": "Last 7 days", "vừa xong": "just now", "{0} phút trước": "{0} min ago", "{0} giờ trước": "{0} h ago", "{0} ngày trước": "{0} d ago", "{0}n {1}g": "{0}d {1}h", "{0}g {1}p": "{0}h {1}m", "{0}p": "{0}m", "{0} ngày {1} giờ": "{0} days {1} h", "{0} giờ {1} phút": "{0} h {1} min", "{0} phút": "{0} min", "{0} · {1}: đã dùng {2}%": "{0} · {1}: {2}% used", " · đặt lại sau {0}": " · resets in {0}", "Hạn mức chính thức: {0}": "Official quota: {0}", "% đã dùng · cập nhật {0}": "% used · updated {0}", " · agy chỉ đọc được tài khoản đang dùng": " · agy can only read the active account", " · theo lượt chạy Codex gần nhất": " · from the latest Codex run", "Chưa có hạn mức: agy chỉ đọc được tài khoản đang dùng, sẽ cập nhật khi tài khoản này được dùng.": "No quota yet: agy can only read the active account; it updates when this account is used.", "Chưa có hạn mức: sẽ hiện sau lượt chạy Codex đầu tiên.": "No quota yet: it appears after the first Codex run.", "Đang tải hạn mức…": "Loading quota…", "dùng {0}": "used {0}", "{0} lượt": "{0} calls", "7 ngày theo model: {0}": "7 days by model: {0}", "Chưa có lượt nào trong 7 ngày qua.": "No calls in the last 7 days.", "Giới hạn tự đặt": "Custom limits", "Giới hạn tự đặt ✓": "Custom limits ✓", "Không có tài khoản nào.": "No accounts.", "Cập nhật {0}": "Updated {0}", "Cập nhật vừa xong": "Updated just now", "Khác": "Other", "Lượt gọi": "Calls", "Lượt": "Calls", "Token vào": "Input tokens", "Token ra": "Output tokens", "Ghi cache": "Cache writes", "Đọc cache": "Cache reads", "Chưa có lượt nào trong khoảng này.": "No calls in this range.", "Chưa có lượt nào.": "No calls yet.", "Lúc": "When", "Tài khoản · model": "Account · model", "Vào / Ra": "In / Out", "Tài khoản": "Account", "{0} token · {1} lượt": "{0} tokens · {1} calls", "Lần đầu xem 30 ngày có thể mất vài chục giây.": "The first 30-day view can take a few tens of seconds.", "Không tính được mức sử dụng: {0}": "Could not compute usage: {0}", "Giới hạn phải là số token, ví dụ 5M hoặc 200K.": "The limit must be a token count, e.g. 5M or 200K.", "Đã lưu giới hạn.": "Limit saved.", "Tất cả mô hình": "All models", "Antigravity CLI đang dùng": "Antigravity CLI in use", "Đang tải…": "Loading…", "Đang kiểm tra…": "Checking…", "Model chọn ở mỗi tài khoản được dùng khi chat và khi mở agy.": "The model chosen for each account is used for chat and when opening agy.", "Tải lại danh sách model agy": "Reload agy model list", "\"Mặc định\" là tài khoản đang đăng nhập sẵn trên máy (~/.claude, ~/.codex). Mỗi tài khoản thêm vào có thư mục cấu hình riêng, nên các tài khoản không ghi đè nhau.": "\"Default\" is the account already signed in on this machine (~/.claude, ~/.codex). Each added account has its own config folder, so accounts never overwrite each other.", "Kiểm tra lại": "Check again", "Mỗi cuộc trò chuyện được ghi thành một file .md trong": "Each conversation is saved as a .md file in", ", và một bản sao trong": ", and a copy in", "của mỗi thư mục project đã làm việc (có sẵn .gitignore để không bị commit). Khi đổi công cụ, tài khoản hoặc thư mục, phần lịch sử mà trợ lý mới chưa thấy được tự gửi kèm, để nó biết trước đó đã làm gì.": "of every project folder you worked in (with a .gitignore so it is not committed). When you switch tool, account or folder, the history the new assistant has not seen is sent along, so it knows what was done before.", "Mở thư mục lịch sử": "Open history folder", "Thêm tài khoản": "Add account", "Công cụ": "Tool", "Tên tài khoản, ví dụ: work": "Account name, e.g. work", "Đăng nhập tài khoản mới": "Sign in a new account", "Mở agy": "Open agy", "Thư mục project, ví dụ: C:\\Users\\nguye\\code\\myapp": "Project folder, e.g. C:\\Users\\you\\code\\myapp", "Tiếp tục cuộc trò chuyện gần nhất (--continue)": "Continue the latest conversation (--continue)", "Khi agy đang chạy, bấm vào tài khoản khác: công cụ sẽ đóng agy, chuyển tài khoản và mở lại agy ở thư mục này.": "While agy is running, click another account: the tool closes agy, switches accounts and reopens agy in this folder.", "Kiểm tra lịch sử khi đổi tài khoản agy": "Check history when switching agy accounts", "Đổi tên tài khoản": "Rename account", "Ví dụ: Công ty, Cá nhân": "E.g. Work, Personal", "Bỏ tên": "Clear name", "Hủy": "Cancel", "Lưu": "Save", "Đổi tên hiển thị": "Rename", "Đã đổi tên.": "Renamed.", "Đã bỏ tên.": "Name cleared.", "{0}. Tên này hiện ở mọi nơi thay cho \"{1}\".": "{0}. This name is shown everywhere instead of \"{1}\".", "Mặc định": "Default", "mặc định": "default", "model mặc định": "default model", "Model mặc định": "Default model", "Chưa đăng nhập": "Not signed in", "Không rõ trạng thái đăng nhập": "Sign-in status unknown", "Đã đăng nhập": "Signed in", " (chưa đăng nhập)": " (not signed in)", " (đang kiểm tra…)": " (checking…)", "Đang đăng nhập…": "Signing in…", "Đăng nhập": "Sign in", "Xóa": "Delete", "Hủy đăng nhập": "Cancel sign-in", "Chưa cài {0} trên máy này.": "{0} is not installed on this machine.", "Đang chờ đăng nhập {0} ({1}s)": "Waiting for sign-in {0} ({1}s)", "Đang chờ đăng nhập agy cho profile {0} ({1}s)": "Waiting for agy sign-in for profile {0} ({1}s)", "Một cửa sổ PowerShell sẽ chạy Claude Code với thư mục cấu hình riêng cho tài khoản này: làm theo bước đăng nhập (nếu không tự hiện, gõ /login). Tài khoản Claude mặc định trên máy không bị ảnh hưởng.": "A PowerShell window will run Claude Code with a separate config folder for this account: follow the sign-in steps (type /login if they do not appear). The default Claude account on this machine is not affected.", "Một cửa sổ PowerShell sẽ chạy \"codex login\" với thư mục CODEX_HOME riêng (config.toml được chép từ ~/.codex). Tài khoản Codex mặc định không bị ảnh hưởng.": "A PowerShell window will run \"codex login\" with a separate CODEX_HOME (config.toml is copied from ~/.codex). The default Codex account is not affected.", "Một cửa sổ PowerShell sẽ chạy agy để bạn đăng nhập. Đăng nhập xong, tài khoản được lưu và dùng ngay.": "A PowerShell window will run agy so you can sign in. Once signed in, the account is saved and used right away.", "Không tìm thấy agy trong PATH. Sau khi bấm nút, hãy tự chạy agy trong PowerShell để đăng nhập.": "agy was not found in PATH. After clicking the button, run agy yourself in PowerShell to sign in.", "Nhập model khác…": "Enter another model…", "Nhập model ID, ví dụ: claude-opus-4-1 hoặc claude-opus-5-5[1m]": "Enter a model ID, e.g. claude-opus-4-1 or claude-opus-5-5[1m]", "Model ID chỉ gồm chữ, số và . _ : / [ ] -": "Model IDs may only contain letters, digits and . _ : / [ ] -", "Tài khoản mới sẽ hiện ở đây khi đăng nhập xong.": "The new account will show here once signed in.", "Tài khoản chưa rõ email": "Account with unknown email", "Tài khoản này chưa được lưu thành profile.": "This account has not been saved as a profile.", "Chọn một tài khoản bên dưới.": "Pick an account below.", "Thêm tài khoản đầu tiên ở bên dưới.": "Add your first account below.", "agy đang chạy. Bấm vào tài khoản khác để tự đóng agy, chuyển và mở lại ở thư mục project.": "agy is running. Click another account to close agy, switch, and reopen it in the project folder.", "Đóng tất cả agy": "Close all agy", "agy đang đăng nhập một tài khoản chưa được lưu. Lưu nó lại trước để không bị mất khi chuyển.": "agy is signed in to an account that is not saved. Save it first so it is not lost when switching.", "Tên profile, ví dụ: personal": "Profile name, e.g. personal", "Lưu tài khoản này": "Save this account", "không đọc được email": "email unreadable", "Đang dùng": "In use", "Chưa có tài khoản nào được lưu.": "No saved accounts yet.", "Mỗi bước có thể mất vài chục giây. Đừng mở agy trong lúc này.": "Each step can take a few tens of seconds. Do not open agy meanwhile.", "Cần ít nhất 2 tài khoản đã lưu, và đang dùng một trong số đó.": "Needs at least 2 saved accounts, with one of them in use.", "agy sẽ trả lời 3 câu hỏi ngắn trong một thư mục thử riêng (không đụng project của bạn), rồi tự trả về {0}. Tốn một ít hạn mức của cả hai tài khoản. agy phải đang tắt.": "agy will answer 3 short questions in a separate test folder (your projects are not touched), then switch back to {0}. Uses a little quota on both accounts. agy must be closed.", "So với {0}": "Compare with {0}", "Tài khoản để so sánh": "Account to compare", "Chạy kiểm tra": "Run check", "Xem agy đã trả lời gì": "See what agy answered", "Server đã tắt": "Server stopped", "Chạy lại": "Run", "khi cần. Bạn có thể đóng tab này.": "again when needed. You can close this tab.", "Phản hồi không hợp lệ từ server.": "Invalid response from server.", "Không kết nối được server: {0}": "Cannot reach the server: {0}", "Đã tải {0} model": "Loaded {0} models", "Xóa cuộc trò chuyện này khỏi Nguyên Swap?": "Delete this conversation from Nguyên Swap?", "Đã xóa cuộc trò chuyện": "Conversation deleted", "Đã dừng": "Stopped", "Đã hủy đăng nhập": "Sign-in cancelled", "Đã kiểm tra lại trạng thái đăng nhập": "Sign-in status rechecked", "Xóa tài khoản {0} \"{1}\"? Thư mục cấu hình và đăng nhập của nó sẽ bị xóa khỏi máy.": "Delete {0} account \"{1}\"? Its config folder and sign-in will be removed from this machine.", "Đã xóa {0} · {1}": "Deleted {0} · {1}", "Chọn thư mục project ở ô \"Làm việc trong\" trước.": "Pick a project folder in \"Work in\" first.", "Xóa toàn bộ lịch sử chat trong:\n{0}\\.ai-history ?\n\nBản trong thư mục lịch sử chung vẫn được giữ. Nếu chat tiếp trong project này, lịch sử sẽ được ghi lại từ đầu.": "Delete all chat history in:\n{0}\\.ai-history ?\n\nThe copy in the shared history folder is kept. If you keep chatting in this project, history is recorded again from scratch.", "Đã xóa {0} file lịch sử trong project": "Deleted {0} history files in the project", "Project này không có lịch sử để xóa": "This project has no history to delete", "Đã mở": "Opened", "Nhập thư mục project ở mục \"Mở agy\" để mở lại agy đúng chỗ.": "Enter a project folder under \"Open agy\" so agy reopens in the right place.", "agy đang chạy. Đóng agy, chuyển sang {0} rồi mở lại agy ở:\n{1}?": "agy is running. Close agy, switch to {0} and reopen agy in:\n{1}?", "Đã chuyển sang {0} và mở lại agy": "Switched to {0} and reopened agy", "Đã chuyển sang {0}": "Switched to {0}", "Nhập thư mục project trước.": "Enter a project folder first.", "Đã mở agy": "agy opened", "Bắt đầu kiểm tra": "Check started", "Xóa profile \"{0}\"? Token đã lưu của nó sẽ bị xóa khỏi máy.": "Delete profile \"{0}\"? Its saved token will be removed from this machine.", "Đã xóa": "Deleted", "Đóng tất cả cửa sổ agy đang chạy? Phiên làm việc chưa lưu trong agy sẽ bị ngắt.": "Close all running agy windows? Unsaved agy sessions will be interrupted.", "Đã đóng agy": "agy closed", "Nhập tên tài khoản trước.": "Enter an account name first.", "Nhập tên profile trước.": "Enter a profile name first.", "Đã lưu": "Saved", "Tắt server Nguyên Swap? Tài khoản đang dùng vẫn giữ nguyên.": "Stop the Nguyên Swap server? The active account stays as is.", "Toàn quyền: trợ lý được tự chạy mọi lệnh và sửa mọi file mà không hỏi lại. Chỉ dùng với thư mục bạn tin tưởng. Tiếp tục?": "Full access: the assistant may run any command and edit any file without asking. Only use it with folders you trust. Continue?", "Đã đặt model cho {0}": "Model set for {0}", "Tên profile chỉ gồm chữ, số, dấu - và _ (tối đa 40 ký tự).": "Profile names may only contain letters, digits, - and _ (max 40 characters).", "Tên model không hợp lệ.": "Invalid model name.", "Không tìm thấy agy. Đặt biến AGY_BIN trỏ tới agy.exe.": "agy not found. Set AGY_BIN to the path of agy.exe.", "Công cụ không hợp lệ.": "Invalid tool.", "Tài khoản này đang trả lời trong Chat.": "This account is answering in Chat.", "Tài khoản này đang đăng nhập. Hãy hủy trước.": "This account is signing in. Cancel it first.", "Đang có một lượt đăng nhập. Hãy đợi xong hoặc hủy trước.": "A sign-in is in progress. Wait for it or cancel it first.", "Không có lượt đăng nhập nào đang chạy.": "No sign-in is in progress.", "Chọn thư mục project để mở agy.": "Pick a project folder to open agy.", "Chọn hai tài khoản khác nhau.": "Pick two different accounts.", "Mã cuộc trò chuyện không hợp lệ.": "Invalid conversation id.", "Không tìm thấy cuộc trò chuyện này.": "Conversation not found.", "Đang chờ trả lời một tin nhắn. Hãy đợi xong rồi xóa.": "Waiting for a reply. Wait for it to finish, then delete.", "Cuộc trò chuyện này đang chờ trả lời.": "This conversation is waiting for a reply.", "Chọn trợ lý để chat.": "Pick an assistant to chat with.", "Python này không có tkinter. Hãy dán đường dẫn thư mục vào ô.": "This Python has no tkinter. Paste the folder path into the box.", "Hộp thoại chọn thư mục đang mở (có thể bị che sau trình duyệt).": "The folder picker is open (it may be behind the browser).", "Mức effort không hợp lệ.": "Invalid effort level.", "Thiếu cấu hình Bố / Con.": "Missing Parent / Child settings.", "Quyền của Con không hợp lệ.": "Invalid Child permission.", "Đang đăng nhập / kiểm tra agy ở mục Cài đặt nên chưa gọi được agy.": "agy is busy signing in / being checked in Settings, so it cannot be called yet.", "Nhập nội dung tin nhắn.": "Enter a message.", "Không tìm thấy file đính kèm. Hãy đính kèm lại.": "Attachment not found. Attach it again.", "Đang chờ trả lời tin nhắn trước. Hãy đợi xong hoặc bấm Dừng.": "Waiting for the previous reply. Wait for it or press Stop.", "Quyền không hợp lệ.": "Invalid permission.", "Cuộc trò chuyện này là cây task Bố–Con. Hãy gửi cho Bố.": "This conversation is a Parent–Child task tree. Send it to Parent.", "Cách làm không hợp lệ.": "Invalid workflow.", "Chưa có kế hoạch. Hãy gửi yêu cầu cho Bố trước.": "No plan yet. Send a request to Parent first.", "Không còn task nào cần làm.": "No tasks left to do.", "Đang làm việc trong cuộc trò chuyện này. Hãy đợi xong hoặc bấm Dừng.": "Work is running in this conversation. Wait for it or press Stop.", "Trạng thái task không hợp lệ.": "Invalid task status.", "Không tìm thấy task này.": "Task not found.", "Không có tin nhắn nào đang chờ.": "No message is waiting.", "Tài khoản không hợp lệ.": "Invalid account.", "Tên tối đa 40 ký tự.": "Names are at most 40 characters.", "Khoảng thời gian không hợp lệ.": "Invalid time range.", "Không đóng được agy. Hãy tự thoát nó rồi thử lại.": "Could not close agy. Quit it yourself and try again.", "agy chưa đăng nhập tài khoản nào.": "agy is not signed in to any account.", "Không tìm thấy agy để chạy kiểm tra. Đặt biến AGY_BIN trỏ tới agy.exe.": "agy not found for the check. Set AGY_BIN to the path of agy.exe.", "Chỉ lập kế hoạch (Bố) · không code, chốt thì xuất file .md": "Plan only (Parent) · no code, export a .md when final", "Chỉ lập kế hoạch (Con) · không code, chốt thì xuất file .md": "Plan only (Child) · no code, export a .md when final", "Chỉ lập kế hoạch (Bố)": "Plan only (Parent)", "Chỉ lập kế hoạch (Con)": "Plan only (Child)", "Kế hoạch · {0} bước": "Plan · {0} steps", "Chốt & xuất file .md": "Finalize & export .md", "Đã xuất kế hoạch:": "Plan exported:", "Mở file": "Open file", "Đã mở {0}": "Opened {0}", "Mô tả việc cần lập kế hoạch, hỏi hoặc trả lời câu hỏi… Chốt xong bấm \"Chốt & xuất file .md\" (Enter để gửi)": "Describe what to plan, ask or answer questions… When done, press \"Finalize & export .md\" (Enter to send)", "{0} chỉ lập kế hoạch (chỉ đọc, không sửa file) trong {1}. Chốt xong sẽ xuất file .md vào {1}\\plans.": "{0} only plans (read-only, no file changes) in {1}. When finalized, a .md file is exported to {1}\\plans.", "Chưa có file kế hoạch, hoặc file đã bị xóa.": "No plan file yet, or it was deleted.", "Chưa có kế hoạch. Hãy trao đổi với người lập kế hoạch trước.": "No plan yet. Talk to the planner first.", "Bố lập kế hoạch → bạn duyệt → Con làm (mỗi lần sửa kế hoạch cần duyệt lại)": "Parent plans → you approve → Child works (re-approve after every plan change)", "Bố lập kế hoạch → bạn duyệt → Con tự làm hết (câu hỏi giữa chừng Bố tự cập nhật)": "Parent plans → you approve → Child does everything (Parent handles mid-way questions)", "Duyệt & giao cho Con": "Approve & assign to Child", "Duyệt & giao cho Bố": "Approve & assign to Parent", "Kế hoạch chờ bạn duyệt": "Plan awaiting your approval", "Đọc kỹ các task bên dưới (đã mở sẵn chi tiết). Đúng ý thì bấm \"Duyệt & giao cho {0}\". Chưa đúng thì gõ góp ý rồi bấm \"Gửi cho Bố\" để Bố sửa. {0} chỉ bắt đầu sau khi bạn duyệt.": "Read the tasks below carefully (details are expanded). If it matches what you want, press \"Approve & assign to {0}\". If not, type your feedback and press \"Send to Parent\" so Parent revises it. {0} only starts after you approve.", "Mẫu trả lời đã được điền sẵn ở ô bên dưới: điền tiếp rồi bấm \"Gửi cho Bố\". Bố phân tích, cập nhật task cho rõ, rồi bạn duyệt lại kế hoạch.": "An answer template is filled in below: complete it, then press \"Send to Parent\". Parent analyses it and clarifies the tasks, then you approve the plan again.", "Bố ({0}) chỉ đọc và lập kế hoạch · Con ({1}) làm trong {2}, {3}, sau khi bạn duyệt kế hoạch.": "Parent ({0}) is read-only and plans · Child ({1}) works in {2}, {3}, after you approve the plan.", "Bố ({0}) chỉ đọc và lập kế hoạch · Con ({1}) làm trong {2}, {3}, sau khi bạn duyệt kế hoạch; câu hỏi giữa chừng Bố cập nhật rồi Con tự làm tiếp.": "Parent ({0}) is read-only and plans · Child ({1}) works in {2}, {3}, after you approve the plan; Parent handles mid-way questions and Child continues.", "Kế hoạch chưa được duyệt. Xem các task rồi bấm \"Duyệt & giao\", hoặc gửi góp ý cho Bố để sửa.": "The plan is not approved yet. Review the tasks and press \"Approve & assign\", or send feedback to Parent.", "{0} bước trước": "{0} earlier steps", "Model agy này đã gồm mức effort trong tên (High / Medium / Low) hoặc agy cố định effort cho nó, nên không chọn thêm effort.": "This agy model already includes the effort level in its name (High / Medium / Low) or agy fixes its effort, so no extra effort can be chosen.", "Mẹ check": "Reviewer", "Mẹ check: ": "Reviewer: ", "Không bật": "Off", "Mẹ check: ai kiểm tra kết quả": "Reviewer: who checks the result", "Model của Mẹ check": "Reviewer's model", "Effort của Mẹ check": "Reviewer's effort", "kiểm tra lại sau khi làm xong": "reviews the result when done", "Mẹ check ({0}) đang kiểm tra kết quả…": "Reviewer ({0}) is checking the result…", "Mẹ check đã kiểm tra xong.": "Reviewer finished checking.", "Số Con chạy song song": "Number of parallel Children", "Các task độc lập (không phụ thuộc nhau) được giao cho nhiều Con làm cùng lúc": "Independent tasks (no dependencies) are given to several Children at once", "1 Con (tuần tự)": "1 Child (sequential)", "2 Con song song": "2 Children in parallel", "3 Con song song": "3 Children in parallel", "4 Con song song": "4 Children in parallel", "Con {0} · task #{1}": "Child {0} · task #{1}", "{0} Con đang làm song song…": "{0} Children working in parallel…", "Làm sau task": "After task", "{0} Con song song": "{0} Children in parallel", "Số Con chạy song song không hợp lệ.": "Invalid number of parallel Children.", "Bố quyết định task nào độc lập (deps) và cho tối đa bao nhiêu Con chạy cùng lúc": "Parent decides which tasks are independent (deps) and how many Children may run at once", "Song song theo kế hoạch của Bố": "Parallel as planned by Parent", "Tuần tự (1 Con)": "Sequential (1 Child)", "Song song theo Bố": "Parallel per Parent", "Kế hoạch chưa có deps nên chạy tuần tự.": "The plan has no deps yet, so it runs sequentially.", "Bạn chọn chạy tuần tự (1 Con).": "You chose sequential (1 Child).", "Bố cho chạy tối đa {0} Con song song.": "Parent allows up to {0} Children in parallel.", "Sao chép": "Copy", "LỖI": "ERROR", "Đã sao chép.": "Copied."};
+const EN = {"Thu gọn": "Collapse", "Mở rộng": "Expand", "Đính kèm": "Attach", "Mục cài đặt": "Settings sections", "Tài khoản": "Accounts", "Chuyển sang máy khác": "Move to another machine", "Công cụ agy": "agy tools", "Lịch sử": "History", "Đã đăng nhập ở máy khác? Dùng tab": "Already signed in on another machine? Use the", "để nhập luôn, không cần đăng nhập lại.": "tab to import it without signing in again.", "Xuất đăng nhập (máy đang dùng)": "Export sign-ins (this machine)", "Chọn tài khoản và đặt mật khẩu: app tạo một chuỗi đã mã hóa để dán sang máy khác. Ai có cả chuỗi lẫn mật khẩu là dùng được các tài khoản này: giữ kín, gửi mật khẩu bằng đường khác với chuỗi.": "Pick accounts and set a password: the app creates an encrypted string to paste on another machine. Anyone with both the string and the password can use these accounts: keep them private and send the password separately from the string.", "Mật khẩu cho chuỗi (ít nhất 6 ký tự)": "Password for the string (at least 6 characters)", "Tạo chuỗi": "Create string", "Sao chép chuỗi": "Copy string", "Nhập đăng nhập (máy mới)": "Import sign-ins (new machine)", "Dán chuỗi NCTAI1:… từ máy kia": "Paste the NCTAI1:… string from the other machine", "Mật khẩu của chuỗi": "Password of the string", "Nhập tài khoản": "Import accounts", "Tài khoản đã có trên máy này (cùng email) thì được cập nhật; trùng tên với tài khoản khác thì thêm hậu tố -2, -3. Model và tên hiển thị đi kèm.": "Accounts already on this machine (same email) are updated; a name clash with a different account gets a -2, -3 suffix. Model and display name come along.", "Lưu ý: Claude Code và Codex tự đổi token định kỳ. Dùng cùng một tài khoản trên 2 máy cùng lúc thì đôi khi một máy bị đăng xuất: khi đó xuất lại từ máy còn chạy, hoặc đăng nhập riêng trên máy kia.": "Note: Claude Code and Codex rotate tokens periodically. Using one account on 2 machines at the same time can sometimes sign one of them out: then export again from the working machine, or sign in separately on the other one.", "Chưa có tài khoản nào đã đăng nhập để xuất.": "No signed-in accounts to export.", "{0} tài khoản · máy kia cần mật khẩu bạn vừa đặt": "{0} accounts · the other machine needs the password you just set", "Đã nhập {0} tài khoản:": "Imported {0} accounts:", "Đã nhập {0} tài khoản": "Imported {0} accounts", "đang dùng trên máy này, giữ nguyên": "in use on this machine, kept as is", "Bấm Ctrl+C để sao chép.": "Press Ctrl+C to copy.", "Chọn ít nhất một tài khoản để xuất.": "Pick at least one account to export.", "Đặt mật khẩu cho chuỗi (ít nhất 6 ký tự). Máy kia cần mật khẩu này để nhập.": "Set a password for the string (at least 6 characters). The other machine needs it to import.", "Sai mật khẩu, hoặc chuỗi bị sửa / thiếu.": "Wrong password, or the string was altered / truncated.", "Chuỗi không đúng định dạng (phải bắt đầu bằng NCTAI1:).": "Invalid string (it must start with NCTAI1:).", "Chuỗi bị lỗi hoặc bị cắt mất một phần.": "The string is broken or truncated.", "Chuỗi không có tài khoản nào nhập được.": "The string has no importable accounts.", "Bố cần bạn trả lời {0} câu hỏi trước khi duyệt": "Parent needs your answers to {0} questions before approval", "Trả lời hết một lần để Con làm một mạch, không phải dừng giữa chừng hỏi lại. Mẫu trả lời đã điền sẵn ở ô bên dưới: điền tiếp rồi bấm \"Gửi cho Bố\".": "Answer them all at once so Child can work straight through without stopping to ask. An answer template is filled in below: complete it and press \"Send to Parent\".", "Điền lại mẫu trả lời": "Refill answer template", "Bỏ qua câu hỏi, duyệt luôn": "Skip questions, approve anyway", "Trả lời các câu hỏi của Bố:": "Answers to Parent's questions:", "Trả lời:": "Answer:", "Duyệt kế hoạch khi Bố còn câu hỏi chưa trả lời? Con sẽ tự chọn cách hợp lý cho các điểm chưa rõ.": "Approve while Parent still has unanswered questions? Child will choose reasonable defaults for unclear points.", "Bố còn câu hỏi chưa được trả lời. Hãy trả lời cho Bố trước (hoặc bấm \"Bỏ qua câu hỏi, duyệt luôn\").": "Parent still has unanswered questions. Answer Parent first (or press \"Skip questions, approve anyway\").", "Kết quả dự kiến": "Expected result", "Bố chưa ghi kết quả dự kiến của kế hoạch. Nên gửi cho Bố: \"Bổ sung kết quả dự kiến\" trước khi duyệt.": "Parent has not stated the expected result of the plan. Send Parent: \"Add the expected results\" before approving.", "Cần xong trước": "Must finish first", "Task đang chọn": "Selected task", "Nối đuôi phía sau": "Follows after", "Task bên dưới phải chờ task nối phía trên xong (nét đứt: cũng chờ). Kéo thẻ sang trái / phải để đổi ưu tiên (trái = làm trước). Bấm một thẻ để xem chi tiết, Để cuối / Tạm hoãn.": "A task waits for the task linked above it (dashed: also waits). Drag cards left / right to change priority (left = first). Click a card for details, Run last / Hold.", "Bấm vào một task trên sơ đồ để xem chi tiết.": "Click a task in the diagram to see its details.", "Kéo để đổi độ rộng (bấm đúp: về mặc định)": "Drag to resize (double-click: reset)", "Cách xem kế hoạch": "Plan view", "Danh sách": "List", "Cây": "Tree", "Kéo ⠿ để đổi ưu tiên (trên = làm trước). Không kéo được task lên trước task nó phải chờ. Mở task để Để cuối / Tạm hoãn.": "Drag ⠿ to change priority (top = first). A task can't move above a task it waits for. Open a task to Run last / Hold.", "Kéo ⠿ để đổi ưu tiên (trên = làm trước). Task thụt vào phải chờ task phía trên nó xong. Mở task để Để cuối / Tạm hoãn.": "Drag ⠿ to change priority (top = first). Indented tasks wait for the task above them. Open a task to Run last / Hold.", "Kéo để đổi ưu tiên": "Drag to change priority", "để cuối": "run last", "tạm hoãn": "on hold", "chờ task hoãn": "waits for held task", "Cũng chờ task": "Also waits for task", "{0} task làm song song được": "{0} tasks can run in parallel", "Bỏ hoãn": "Release", "Để cuối": "Run last", "Tạm hoãn": "Hold", "Các task còn lại đang tạm hoãn. Bấm \"Bỏ hoãn\" ở task muốn chạy.": "The remaining tasks are on hold. Click \"Release\" on a task to run it.", "Bố ({0}) đang cập nhật kế hoạch theo câu trả lời của bạn…": "Parent ({0}) is updating the plan from your answer…", "Bố · cập nhật kế hoạch": "Parent · updating plan", "Thu gọn / mở danh sách trò chuyện": "Collapse / expand conversation list", "Mức sử dụng": "Usage", "Cài đặt": "Settings", "Tắt server": "Stop server", "Ngôn ngữ": "Language", "Cuộc trò chuyện mới": "New conversation", "Chưa có cuộc trò chuyện nào.": "No conversations yet.", "Xóa cuộc trò chuyện": "Delete conversation", "(trống)": "(empty)", "chat riêng": "private chat", "Cây task · {0}/{1} xong": "Task tree · {0}/{1} done", "Chế độ": "Mode", "Chat thường": "Chat", "Cây task Bố–Con": "Parent–Child tasks", "Thu gọn / mở phần cấu hình": "Collapse / expand settings", "Thu gọn ▴": "Collapse ▴", "Mở rộng ▾": "Expand ▾", "Bố": "Parent", "Con": "Child", "Bố làm": "Parent works", "Bố: ": "Parent: ", "Con: ": "Child: ", "Bố: ai lập kế hoạch": "Parent: who plans", "Model của Bố": "Parent's model", "Effort của Bố": "Parent's effort", "Mức suy nghĩ: cao hơn thì kỹ hơn nhưng chậm và tốn hạn mức hơn": "Thinking effort: higher is more thorough but slower and uses more quota", "Effort mặc định": "Default effort", "Effort: thấp": "Effort: low", "Effort: vừa": "Effort: medium", "Effort: cao": "Effort: high", "Effort: rất cao": "Effort: very high", "Effort: tối đa": "Effort: max", "chỉ đọc, lập kế hoạch": "read-only, plans", "lập kế hoạch rồi tự làm": "plans, then does the work", "Ai làm việc": "Who works", "Quyền": "Permission", "Chỉ đọc, trả lời": "Read-only, answer", "Được sửa file": "Can edit files", "Toàn quyền (chạy lệnh)": "Full access (run commands)", "Làm việc trong": "Work in", "Thư mục chat riêng (để trống), hoặc dán đường dẫn: C:\\code\\du-an": "Private chat folder (leave empty), or paste a path: C:\\code\\my-project", "Chọn…": "Browse…", "Cách làm": "Workflow", "Bố lập kế hoạch → bạn xác nhận → Con làm": "Parent plans → you confirm → Child works", "Bố lập kế hoạch → Con tự làm luôn": "Parent plans → Child works right away", "Bố lập kế hoạch và tự làm": "Parent plans and does the work", "Con lập kế hoạch và tự làm": "Child plans and does the work", "Bố lập kế hoạch, chờ xác nhận": "Parent plans, waits for confirmation", "Bố lập kế hoạch, Con tự làm": "Parent plans, Child works", "Bố lập kế hoạch và làm": "Parent plans and works", "Con lập kế hoạch và làm": "Child plans and works", "chỉ đọc và trả lời": "read-only, answers", "được sửa file": "can edit files", "toàn quyền, kể cả chạy lệnh": "full access, including running commands", "thư mục chat riêng": "the private chat folder", "Bố ({0}) lập kế hoạch rồi tự làm trong {1}, {2}.": "Parent ({0}) plans, then works in {1}, {2}.", "Con ({0}) lập kế hoạch rồi tự làm trong {1}, {2}.": "Child ({0}) plans, then works in {1}, {2}.", "Bố ({0}) chỉ đọc và lập kế hoạch · Con ({1}) làm trong {2}, {3}, sau khi bạn bấm \"Con bắt đầu làm\".": "Parent ({0}) is read-only and plans · Child ({1}) works in {2}, {3}, after you press \"Child starts\".", "Bố ({0}) chỉ đọc và lập kế hoạch · Con ({1}) làm trong {2}, {3}, tự làm ngay khi có kế hoạch.": "Parent ({0}) is read-only and plans · Child ({1}) works in {2}, {3}, as soon as there is a plan.", "{0} sẽ làm việc trong {1}, {2}.": "{0} will work in {1}, {2}.", "Kế hoạch": "Plan", "Kế hoạch · {0}/{1} xong": "Plan · {0}/{1} done", "Giao việc hoặc hỏi… (Enter để gửi, Shift+Enter để xuống dòng)": "Give a task or ask… (Enter to send, Shift+Enter for a new line)", "Trả lời câu hỏi của Con… Bố sẽ phân tích và cập nhật kế hoạch (Enter để gửi)": "Answer Child's question… Parent will analyse it and update the plan (Enter to send)", "Mô tả việc cần làm, hoặc góp ý kế hoạch… Bố sẽ chia thành các task chi tiết cho Con (Enter để gửi)": "Describe the work, or give feedback on the plan… Parent will split it into detailed tasks for Child (Enter to send)", "Đính kèm ảnh / file (có thể kéo thả hoặc dán ảnh bằng Ctrl+V)": "Attach images / files (drag and drop, or paste images with Ctrl+V)", "📎 Đính kèm": "📎 Attach", "lỗi": "error", "Mở file lịch sử chung của cuộc trò chuyện này": "Open this conversation's shared history file", "Lịch sử chung": "Shared history", "Xóa các file lịch sử chat trong .ai-history của thư mục đang chọn": "Delete the chat history files in .ai-history of the selected folder", "Xóa lịch sử trong project": "Clear project history", "Gửi": "Send", "Gửi cho Bố": "Send to Parent", "Dừng": "Stop", "Bố (model mạnh, chỉ đọc) phân tích yêu cầu và chia thành các task chi tiết. Con (model rẻ hơn) đọc và làm lần lượt từng task. Task nào cần bạn xác nhận thì Con dừng lại và hỏi: bạn trả lời cho Bố, Bố cập nhật kế hoạch, rồi Con làm tiếp. Mô tả việc cần làm rồi bấm \"Gửi cho Bố\".": "Parent (strong model, read-only) analyses the request and splits it into detailed tasks. Child (cheaper model) does the tasks one by one. When a task needs your confirmation, Child stops and asks: you answer Parent, Parent updates the plan, then Child continues. Describe the work, then press \"Send to Parent\".", "Chọn ai làm việc (một tài khoản Antigravity, Claude Code hoặc Codex), chọn model và thư mục làm việc, rồi nhắn việc cần làm. Các tin sau nối tiếp cùng phiên. Mỗi tin chạy ở chế độ không tương tác nên không thể hỏi lại bạn giữa chừng: muốn nó sửa code thì đặt quyền \"Được sửa file\".": "Pick who works (an Antigravity, Claude Code or Codex account), the model and the working folder, then describe the task. Later messages continue the same session. Each message runs non-interactively, so it cannot ask you anything mid-way: to let it change code, set the permission to \"Can edit files\".", "Chưa làm": "To do", "Con đang làm": "Child is working", "Xong": "Done", "Cần xác nhận": "Needs confirmation", "Bỏ qua": "Skip", "Làm lại": "Redo", "Con báo:": "Child reported:", "Con bắt đầu làm": "Child starts", "Con làm tiếp": "Child continues", "Bố bắt đầu làm": "Parent starts", "Bố làm tiếp": "Parent continues", "Chưa có task nào. Bố sẽ lập danh sách task khi trả lời.": "No tasks yet. Parent will create the task list when it replies.", "Con cần bạn xác nhận ở task #{0}:": "Child needs your confirmation on task #{0}:", "Mẫu trả lời đã được điền sẵn ở ô bên dưới: điền tiếp rồi bấm \"Gửi cho Bố\". Bố phân tích, cập nhật task cho rõ, rồi Con tự làm tiếp.": "An answer template is filled in below: complete it, then press \"Send to Parent\". Parent analyses it, clarifies the tasks, then Child continues automatically.", "Mẫu trả lời đã được điền sẵn ở ô bên dưới: điền tiếp rồi bấm \"Gửi cho Bố\". Bố phân tích, cập nhật task cho rõ, rồi bấm \"Con làm tiếp\".": "An answer template is filled in below: complete it, then press \"Send to Parent\". Parent analyses it and clarifies the tasks, then press \"Child continues\".", "Điền lại mẫu trả lời": "Refill answer template", "Trả lời câu hỏi của Con ở task #{0}": "Answer to Child's question on task #{0}", "(Danh sách task: xem bảng kế hoạch phía trên.)": "(Task list: see the plan panel.)", "Tổng kết sau khi Con làm": "Summary after Child worked", "Bố đã trả lời.": "Parent replied.", "Bố đã cập nhật kế hoạch: {0}/{1} task xong": "Parent updated the plan: {0}/{1} tasks done", "Con đã dừng: {0}/{1} task xong": "Child stopped: {0}/{1} tasks done", ". Xem kết quả và câu hỏi (nếu có) trong cuộc trò chuyện.": ". See the results and any questions in the conversation.", ". Đã xong toàn bộ kế hoạch.": ". The whole plan is done.", "Chọn trợ lý cho cả Bố và Con.": "Pick an assistant for both Parent and Child.", "Tối đa 10 file mỗi tin nhắn.": "At most 10 files per message.", "{0}: quá lớn (tối đa 25 MB).": "{0}: too large (max 25 MB).", "Đợi tải file lên xong rồi gửi.": "Wait for the uploads to finish, then send.", "Xem file đính kèm.": "See the attached files.", "Chưa có ai để chat: thêm tài khoản agy, hoặc cài Claude Code / Codex.": "No one to chat with: add an agy account, or install Claude Code / Codex.", "Hạn mức": "Quotas", "Thống kê": "Statistics", "Lọc theo công cụ": "Filter by tool", "Tất cả công cụ": "All tools", "Khoảng thời gian": "Time range", "Hôm nay": "Today", "24 giờ": "24 hours", "7 ngày": "7 days", "30 ngày": "30 days", "Làm mới": "Refresh", "Đang tính…": "Calculating…", "Token theo giờ": "Tokens per hour", "Token theo ngày": "Tokens per day", "Lượt gần đây": "Recent calls", "Theo tài khoản": "By account", "Theo model": "By model", "Số liệu lấy từ đâu?": "Where does this data come from?", "Hạn mức chính thức (% đã dùng, giờ đặt lại): agy lấy từ lệnh /usage (chỉ đọc được tài khoản đang dùng), Codex từ lượt chạy gần nhất, Claude Code từ cùng nguồn với lệnh /usage (dùng token đăng nhập trên máy, chỉ gửi tới api.anthropic.com).": "Official quotas (% used, reset time): agy from its /usage command (only the active account can be read), Codex from its latest run, Claude Code from the same source as its /usage command (uses the login token on this machine, sent only to api.anthropic.com).", "Token = đầu vào + đầu ra + ghi cache; đọc cache ghi riêng vì rẻ hơn nhiều. Claude Code: đọc từ lịch sử phiên trên máy này, tính cả lúc dùng ngoài Nguyên Swap. agy và Codex: chỉ tính các lượt chạy qua Nguyên Swap. Giới hạn ngày / tuần theo token là con số bạn tự đặt để theo dõi (ví dụ 5M, 200K).": "Tokens = input + output + cache writes; cache reads are listed separately because they are much cheaper. Claude Code: read from session history on this machine, including use outside Nguyên Swap. agy and Codex: only runs made through Nguyên Swap. Daily / weekly token limits are numbers you set yourself for tracking (e.g. 5M, 200K).", "5 giờ": "5 hours", "Tuần": "Week", "Ngày": "Day", "5 giờ qua": "Last 5 hours", "7 ngày qua": "Last 7 days", "vừa xong": "just now", "{0} phút trước": "{0} min ago", "{0} giờ trước": "{0} h ago", "{0} ngày trước": "{0} d ago", "{0}n {1}g": "{0}d {1}h", "{0}g {1}p": "{0}h {1}m", "{0}p": "{0}m", "{0} ngày {1} giờ": "{0} days {1} h", "{0} giờ {1} phút": "{0} h {1} min", "{0} phút": "{0} min", "{0} · {1}: đã dùng {2}%": "{0} · {1}: {2}% used", " · đặt lại sau {0}": " · resets in {0}", "Hạn mức chính thức: {0}": "Official quota: {0}", "% đã dùng · cập nhật {0}": "% used · updated {0}", " · agy chỉ đọc được tài khoản đang dùng": " · agy can only read the active account", " · theo lượt chạy Codex gần nhất": " · from the latest Codex run", "Chưa có hạn mức: agy chỉ đọc được tài khoản đang dùng, sẽ cập nhật khi tài khoản này được dùng.": "No quota yet: agy can only read the active account; it updates when this account is used.", "Chưa có hạn mức: sẽ hiện sau lượt chạy Codex đầu tiên.": "No quota yet: it appears after the first Codex run.", "Đang tải hạn mức…": "Loading quota…", "dùng {0}": "used {0}", "{0} lượt": "{0} calls", "7 ngày theo model: {0}": "7 days by model: {0}", "Chưa có lượt nào trong 7 ngày qua.": "No calls in the last 7 days.", "Giới hạn tự đặt": "Custom limits", "Giới hạn tự đặt ✓": "Custom limits ✓", "Không có tài khoản nào.": "No accounts.", "Cập nhật {0}": "Updated {0}", "Cập nhật vừa xong": "Updated just now", "Khác": "Other", "Lượt gọi": "Calls", "Lượt": "Calls", "Token vào": "Input tokens", "Token ra": "Output tokens", "Ghi cache": "Cache writes", "Đọc cache": "Cache reads", "Chưa có lượt nào trong khoảng này.": "No calls in this range.", "Chưa có lượt nào.": "No calls yet.", "Lúc": "When", "Tài khoản · model": "Account · model", "Vào / Ra": "In / Out", "Tài khoản": "Account", "{0} token · {1} lượt": "{0} tokens · {1} calls", "Lần đầu xem 30 ngày có thể mất vài chục giây.": "The first 30-day view can take a few tens of seconds.", "Không tính được mức sử dụng: {0}": "Could not compute usage: {0}", "Giới hạn phải là số token, ví dụ 5M hoặc 200K.": "The limit must be a token count, e.g. 5M or 200K.", "Đã lưu giới hạn.": "Limit saved.", "Tất cả mô hình": "All models", "Antigravity CLI đang dùng": "Antigravity CLI in use", "Đang tải…": "Loading…", "Đang kiểm tra…": "Checking…", "Model chọn ở mỗi tài khoản được dùng khi chat và khi mở agy.": "The model chosen for each account is used for chat and when opening agy.", "Tải lại danh sách model agy": "Reload agy model list", "\"Mặc định\" là tài khoản đang đăng nhập sẵn trên máy (~/.claude, ~/.codex). Mỗi tài khoản thêm vào có thư mục cấu hình riêng, nên các tài khoản không ghi đè nhau.": "\"Default\" is the account already signed in on this machine (~/.claude, ~/.codex). Each added account has its own config folder, so accounts never overwrite each other.", "Kiểm tra lại": "Check again", "Mỗi cuộc trò chuyện được ghi thành một file .md trong": "Each conversation is saved as a .md file in", ", và một bản sao trong": ", and a copy in", "của mỗi thư mục project đã làm việc (có sẵn .gitignore để không bị commit). Khi đổi công cụ, tài khoản hoặc thư mục, phần lịch sử mà trợ lý mới chưa thấy được tự gửi kèm, để nó biết trước đó đã làm gì.": "of every project folder you worked in (with a .gitignore so it is not committed). When you switch tool, account or folder, the history the new assistant has not seen is sent along, so it knows what was done before.", "Mở thư mục lịch sử": "Open history folder", "Thêm tài khoản": "Add account", "Công cụ": "Tool", "Tên tài khoản, ví dụ: work": "Account name, e.g. work", "Đăng nhập tài khoản mới": "Sign in a new account", "Mở agy": "Open agy", "Thư mục project, ví dụ: C:\\Users\\nguye\\code\\myapp": "Project folder, e.g. C:\\Users\\you\\code\\myapp", "Tiếp tục cuộc trò chuyện gần nhất (--continue)": "Continue the latest conversation (--continue)", "Khi agy đang chạy, bấm vào tài khoản khác: công cụ sẽ đóng agy, chuyển tài khoản và mở lại agy ở thư mục này.": "While agy is running, click another account: the tool closes agy, switches accounts and reopens agy in this folder.", "Kiểm tra lịch sử khi đổi tài khoản agy": "Check history when switching agy accounts", "Đổi tên tài khoản": "Rename account", "Ví dụ: Công ty, Cá nhân": "E.g. Work, Personal", "Bỏ tên": "Clear name", "Hủy": "Cancel", "Lưu": "Save", "Đổi tên hiển thị": "Rename", "Đã đổi tên.": "Renamed.", "Đã bỏ tên.": "Name cleared.", "{0}. Tên này hiện ở mọi nơi thay cho \"{1}\".": "{0}. This name is shown everywhere instead of \"{1}\".", "Mặc định": "Default", "mặc định": "default", "model mặc định": "default model", "Model mặc định": "Default model", "Chưa đăng nhập": "Not signed in", "Không rõ trạng thái đăng nhập": "Sign-in status unknown", "Đã đăng nhập": "Signed in", " (chưa đăng nhập)": " (not signed in)", " (đang kiểm tra…)": " (checking…)", "Đang đăng nhập…": "Signing in…", "Đăng nhập": "Sign in", "Xóa": "Delete", "Hủy đăng nhập": "Cancel sign-in", "Chưa cài {0} trên máy này.": "{0} is not installed on this machine.", "Đang chờ đăng nhập {0} ({1}s)": "Waiting for sign-in {0} ({1}s)", "Đang chờ đăng nhập agy cho profile {0} ({1}s)": "Waiting for agy sign-in for profile {0} ({1}s)", "Một cửa sổ PowerShell sẽ chạy Claude Code với thư mục cấu hình riêng cho tài khoản này: làm theo bước đăng nhập (nếu không tự hiện, gõ /login). Tài khoản Claude mặc định trên máy không bị ảnh hưởng.": "A PowerShell window will run Claude Code with a separate config folder for this account: follow the sign-in steps (type /login if they do not appear). The default Claude account on this machine is not affected.", "Một cửa sổ PowerShell sẽ chạy \"codex login\" với thư mục CODEX_HOME riêng (config.toml được chép từ ~/.codex). Tài khoản Codex mặc định không bị ảnh hưởng.": "A PowerShell window will run \"codex login\" with a separate CODEX_HOME (config.toml is copied from ~/.codex). The default Codex account is not affected.", "Một cửa sổ PowerShell sẽ chạy agy để bạn đăng nhập. Đăng nhập xong, tài khoản được lưu và dùng ngay.": "A PowerShell window will run agy so you can sign in. Once signed in, the account is saved and used right away.", "Không tìm thấy agy trong PATH. Sau khi bấm nút, hãy tự chạy agy trong PowerShell để đăng nhập.": "agy was not found in PATH. After clicking the button, run agy yourself in PowerShell to sign in.", "Nhập model khác…": "Enter another model…", "Nhập model ID, ví dụ: claude-opus-4-1 hoặc claude-opus-5-5[1m]": "Enter a model ID, e.g. claude-opus-4-1 or claude-opus-5-5[1m]", "Model ID chỉ gồm chữ, số và . _ : / [ ] -": "Model IDs may only contain letters, digits and . _ : / [ ] -", "Tài khoản mới sẽ hiện ở đây khi đăng nhập xong.": "The new account will show here once signed in.", "Tài khoản chưa rõ email": "Account with unknown email", "Tài khoản này chưa được lưu thành profile.": "This account has not been saved as a profile.", "Chọn một tài khoản bên dưới.": "Pick an account below.", "Thêm tài khoản đầu tiên ở bên dưới.": "Add your first account below.", "agy đang chạy. Bấm vào tài khoản khác để tự đóng agy, chuyển và mở lại ở thư mục project.": "agy is running. Click another account to close agy, switch, and reopen it in the project folder.", "Đóng tất cả agy": "Close all agy", "agy đang đăng nhập một tài khoản chưa được lưu. Lưu nó lại trước để không bị mất khi chuyển.": "agy is signed in to an account that is not saved. Save it first so it is not lost when switching.", "Tên profile, ví dụ: personal": "Profile name, e.g. personal", "Lưu tài khoản này": "Save this account", "không đọc được email": "email unreadable", "Đang dùng": "In use", "Chưa có tài khoản nào được lưu.": "No saved accounts yet.", "Mỗi bước có thể mất vài chục giây. Đừng mở agy trong lúc này.": "Each step can take a few tens of seconds. Do not open agy meanwhile.", "Cần ít nhất 2 tài khoản đã lưu, và đang dùng một trong số đó.": "Needs at least 2 saved accounts, with one of them in use.", "agy sẽ trả lời 3 câu hỏi ngắn trong một thư mục thử riêng (không đụng project của bạn), rồi tự trả về {0}. Tốn một ít hạn mức của cả hai tài khoản. agy phải đang tắt.": "agy will answer 3 short questions in a separate test folder (your projects are not touched), then switch back to {0}. Uses a little quota on both accounts. agy must be closed.", "So với {0}": "Compare with {0}", "Tài khoản để so sánh": "Account to compare", "Chạy kiểm tra": "Run check", "Xem agy đã trả lời gì": "See what agy answered", "Server đã tắt": "Server stopped", "Chạy lại": "Run", "khi cần. Bạn có thể đóng tab này.": "again when needed. You can close this tab.", "Phản hồi không hợp lệ từ server.": "Invalid response from server.", "Không kết nối được server: {0}": "Cannot reach the server: {0}", "Đã tải {0} model": "Loaded {0} models", "Xóa cuộc trò chuyện này khỏi Nguyên Swap?": "Delete this conversation from Nguyên Swap?", "Đã xóa cuộc trò chuyện": "Conversation deleted", "Đã dừng": "Stopped", "Đã hủy đăng nhập": "Sign-in cancelled", "Đã kiểm tra lại trạng thái đăng nhập": "Sign-in status rechecked", "Xóa tài khoản {0} \"{1}\"? Thư mục cấu hình và đăng nhập của nó sẽ bị xóa khỏi máy.": "Delete {0} account \"{1}\"? Its config folder and sign-in will be removed from this machine.", "Đã xóa {0} · {1}": "Deleted {0} · {1}", "Chọn thư mục project ở ô \"Làm việc trong\" trước.": "Pick a project folder in \"Work in\" first.", "Xóa toàn bộ lịch sử chat trong:\n{0}\\.ai-history ?\n\nBản trong thư mục lịch sử chung vẫn được giữ. Nếu chat tiếp trong project này, lịch sử sẽ được ghi lại từ đầu.": "Delete all chat history in:\n{0}\\.ai-history ?\n\nThe copy in the shared history folder is kept. If you keep chatting in this project, history is recorded again from scratch.", "Đã xóa {0} file lịch sử trong project": "Deleted {0} history files in the project", "Project này không có lịch sử để xóa": "This project has no history to delete", "Đã mở": "Opened", "Nhập thư mục project ở mục \"Mở agy\" để mở lại agy đúng chỗ.": "Enter a project folder under \"Open agy\" so agy reopens in the right place.", "agy đang chạy. Đóng agy, chuyển sang {0} rồi mở lại agy ở:\n{1}?": "agy is running. Close agy, switch to {0} and reopen agy in:\n{1}?", "Đã chuyển sang {0} và mở lại agy": "Switched to {0} and reopened agy", "Đã chuyển sang {0}": "Switched to {0}", "Nhập thư mục project trước.": "Enter a project folder first.", "Đã mở agy": "agy opened", "Bắt đầu kiểm tra": "Check started", "Xóa profile \"{0}\"? Token đã lưu của nó sẽ bị xóa khỏi máy.": "Delete profile \"{0}\"? Its saved token will be removed from this machine.", "Đã xóa": "Deleted", "Đóng tất cả cửa sổ agy đang chạy? Phiên làm việc chưa lưu trong agy sẽ bị ngắt.": "Close all running agy windows? Unsaved agy sessions will be interrupted.", "Đã đóng agy": "agy closed", "Nhập tên tài khoản trước.": "Enter an account name first.", "Nhập tên profile trước.": "Enter a profile name first.", "Đã lưu": "Saved", "Tắt server Nguyên Swap? Tài khoản đang dùng vẫn giữ nguyên.": "Stop the Nguyên Swap server? The active account stays as is.", "Toàn quyền: trợ lý được tự chạy mọi lệnh và sửa mọi file mà không hỏi lại. Chỉ dùng với thư mục bạn tin tưởng. Tiếp tục?": "Full access: the assistant may run any command and edit any file without asking. Only use it with folders you trust. Continue?", "Đã đặt model cho {0}": "Model set for {0}", "Tên profile chỉ gồm chữ, số, dấu - và _ (tối đa 40 ký tự).": "Profile names may only contain letters, digits, - and _ (max 40 characters).", "Tên model không hợp lệ.": "Invalid model name.", "Không tìm thấy agy. Đặt biến AGY_BIN trỏ tới agy.exe.": "agy not found. Set AGY_BIN to the path of agy.exe.", "Công cụ không hợp lệ.": "Invalid tool.", "Tài khoản này đang trả lời trong Chat.": "This account is answering in Chat.", "Tài khoản này đang đăng nhập. Hãy hủy trước.": "This account is signing in. Cancel it first.", "Đang có một lượt đăng nhập. Hãy đợi xong hoặc hủy trước.": "A sign-in is in progress. Wait for it or cancel it first.", "Không có lượt đăng nhập nào đang chạy.": "No sign-in is in progress.", "Chọn thư mục project để mở agy.": "Pick a project folder to open agy.", "Chọn hai tài khoản khác nhau.": "Pick two different accounts.", "Mã cuộc trò chuyện không hợp lệ.": "Invalid conversation id.", "Không tìm thấy cuộc trò chuyện này.": "Conversation not found.", "Đang chờ trả lời một tin nhắn. Hãy đợi xong rồi xóa.": "Waiting for a reply. Wait for it to finish, then delete.", "Cuộc trò chuyện này đang chờ trả lời.": "This conversation is waiting for a reply.", "Chọn trợ lý để chat.": "Pick an assistant to chat with.", "Python này không có tkinter. Hãy dán đường dẫn thư mục vào ô.": "This Python has no tkinter. Paste the folder path into the box.", "Hộp thoại chọn thư mục đang mở (có thể bị che sau trình duyệt).": "The folder picker is open (it may be behind the browser).", "Mức effort không hợp lệ.": "Invalid effort level.", "Thiếu cấu hình Bố / Con.": "Missing Parent / Child settings.", "Quyền của Con không hợp lệ.": "Invalid Child permission.", "Đang đăng nhập / kiểm tra agy ở mục Cài đặt nên chưa gọi được agy.": "agy is busy signing in / being checked in Settings, so it cannot be called yet.", "Nhập nội dung tin nhắn.": "Enter a message.", "Không tìm thấy file đính kèm. Hãy đính kèm lại.": "Attachment not found. Attach it again.", "Đang chờ trả lời tin nhắn trước. Hãy đợi xong hoặc bấm Dừng.": "Waiting for the previous reply. Wait for it or press Stop.", "Quyền không hợp lệ.": "Invalid permission.", "Cuộc trò chuyện này là cây task Bố–Con. Hãy gửi cho Bố.": "This conversation is a Parent–Child task tree. Send it to Parent.", "Cách làm không hợp lệ.": "Invalid workflow.", "Chưa có kế hoạch. Hãy gửi yêu cầu cho Bố trước.": "No plan yet. Send a request to Parent first.", "Không còn task nào cần làm.": "No tasks left to do.", "Đang làm việc trong cuộc trò chuyện này. Hãy đợi xong hoặc bấm Dừng.": "Work is running in this conversation. Wait for it or press Stop.", "Trạng thái task không hợp lệ.": "Invalid task status.", "Không tìm thấy task này.": "Task not found.", "Không có tin nhắn nào đang chờ.": "No message is waiting.", "Tài khoản không hợp lệ.": "Invalid account.", "Tên tối đa 40 ký tự.": "Names are at most 40 characters.", "Khoảng thời gian không hợp lệ.": "Invalid time range.", "Không đóng được agy. Hãy tự thoát nó rồi thử lại.": "Could not close agy. Quit it yourself and try again.", "agy chưa đăng nhập tài khoản nào.": "agy is not signed in to any account.", "Không tìm thấy agy để chạy kiểm tra. Đặt biến AGY_BIN trỏ tới agy.exe.": "agy not found for the check. Set AGY_BIN to the path of agy.exe.", "Chỉ lập kế hoạch (Bố) · không code, chốt thì xuất file .md": "Plan only (Parent) · no code, export a .md when final", "Chỉ lập kế hoạch (Con) · không code, chốt thì xuất file .md": "Plan only (Child) · no code, export a .md when final", "Chỉ lập kế hoạch (Bố)": "Plan only (Parent)", "Chỉ lập kế hoạch (Con)": "Plan only (Child)", "Kế hoạch · {0} bước": "Plan · {0} steps", "Chốt & xuất file .md": "Finalize & export .md", "Đã xuất kế hoạch:": "Plan exported:", "Mở file": "Open file", "Đã mở {0}": "Opened {0}", "Mô tả việc cần lập kế hoạch, hỏi hoặc trả lời câu hỏi… Chốt xong bấm \"Chốt & xuất file .md\" (Enter để gửi)": "Describe what to plan, ask or answer questions… When done, press \"Finalize & export .md\" (Enter to send)", "{0} chỉ lập kế hoạch (chỉ đọc, không sửa file) trong {1}. Chốt xong sẽ xuất file .md vào {1}\\plans.": "{0} only plans (read-only, no file changes) in {1}. When finalized, a .md file is exported to {1}\\plans.", "Chưa có file kế hoạch, hoặc file đã bị xóa.": "No plan file yet, or it was deleted.", "Chưa có kế hoạch. Hãy trao đổi với người lập kế hoạch trước.": "No plan yet. Talk to the planner first.", "Bố lập kế hoạch → bạn duyệt → Con làm (mỗi lần sửa kế hoạch cần duyệt lại)": "Parent plans → you approve → Child works (re-approve after every plan change)", "Bố lập kế hoạch → bạn duyệt → Con tự làm hết (câu hỏi giữa chừng Bố tự cập nhật)": "Parent plans → you approve → Child does everything (Parent handles mid-way questions)", "Duyệt & giao cho Con": "Approve & assign to Child", "Duyệt & giao cho Bố": "Approve & assign to Parent", "Kế hoạch chờ bạn duyệt": "Plan awaiting your approval", "Đọc kỹ các task bên dưới (đã mở sẵn chi tiết). Đúng ý thì bấm \"Duyệt & giao cho {0}\". Chưa đúng thì gõ góp ý rồi bấm \"Gửi cho Bố\" để Bố sửa. {0} chỉ bắt đầu sau khi bạn duyệt.": "Read the tasks below carefully (details are expanded). If it matches what you want, press \"Approve & assign to {0}\". If not, type your feedback and press \"Send to Parent\" so Parent revises it. {0} only starts after you approve.", "Mẫu trả lời đã được điền sẵn ở ô bên dưới: điền tiếp rồi bấm \"Gửi cho Bố\". Bố phân tích, cập nhật task cho rõ, rồi bạn duyệt lại kế hoạch.": "An answer template is filled in below: complete it, then press \"Send to Parent\". Parent analyses it and clarifies the tasks, then you approve the plan again.", "Bố ({0}) chỉ đọc và lập kế hoạch · Con ({1}) làm trong {2}, {3}, sau khi bạn duyệt kế hoạch.": "Parent ({0}) is read-only and plans · Child ({1}) works in {2}, {3}, after you approve the plan.", "Bố ({0}) chỉ đọc và lập kế hoạch · Con ({1}) làm trong {2}, {3}, sau khi bạn duyệt kế hoạch; câu hỏi giữa chừng Bố cập nhật rồi Con tự làm tiếp.": "Parent ({0}) is read-only and plans · Child ({1}) works in {2}, {3}, after you approve the plan; Parent handles mid-way questions and Child continues.", "Kế hoạch chưa được duyệt. Xem các task rồi bấm \"Duyệt & giao\", hoặc gửi góp ý cho Bố để sửa.": "The plan is not approved yet. Review the tasks and press \"Approve & assign\", or send feedback to Parent.", "{0} bước trước": "{0} earlier steps", "Model agy này đã gồm mức effort trong tên (High / Medium / Low) hoặc agy cố định effort cho nó, nên không chọn thêm effort.": "This agy model already includes the effort level in its name (High / Medium / Low) or agy fixes its effort, so no extra effort can be chosen.", "Mẹ check": "Reviewer", "Mẹ check: ": "Reviewer: ", "Không bật": "Off", "Mẹ check: ai kiểm tra kết quả": "Reviewer: who checks the result", "Model của Mẹ check": "Reviewer's model", "Effort của Mẹ check": "Reviewer's effort", "kiểm tra lại sau khi làm xong": "reviews the result when done", "Mẹ check ({0}) đang kiểm tra kết quả…": "Reviewer ({0}) is checking the result…", "Mẹ check đã kiểm tra xong.": "Reviewer finished checking.", "Số Con chạy song song": "Number of parallel Children", "Các task độc lập (không phụ thuộc nhau) được giao cho nhiều Con làm cùng lúc": "Independent tasks (no dependencies) are given to several Children at once", "1 Con (tuần tự)": "1 Child (sequential)", "2 Con song song": "2 Children in parallel", "3 Con song song": "3 Children in parallel", "4 Con song song": "4 Children in parallel", "Con {0} · task #{1}": "Child {0} · task #{1}", "{0} Con đang làm song song…": "{0} Children working in parallel…", "Làm sau task": "After task", "{0} Con song song": "{0} Children in parallel", "Số Con chạy song song không hợp lệ.": "Invalid number of parallel Children.", "Bố quyết định task nào độc lập (deps) và cho tối đa bao nhiêu Con chạy cùng lúc": "Parent decides which tasks are independent (deps) and how many Children may run at once", "Song song theo kế hoạch của Bố": "Parallel as planned by Parent", "Tuần tự (1 Con)": "Sequential (1 Child)", "Song song theo Bố": "Parallel per Parent", "Kế hoạch chưa có deps nên chạy tuần tự.": "The plan has no deps yet, so it runs sequentially.", "Bạn chọn chạy tuần tự (1 Con).": "You chose sequential (1 Child).", "Bố cho chạy tối đa {0} Con song song.": "Parent allows up to {0} Children in parallel.", "Sao chép": "Copy", "LỖI": "ERROR", "Đã sao chép.": "Copied."};
 const ENP = [  // lỗi từ server có biến
   [/^Không có profile '(.+)'\.$/, "No profile '$1'."],
   [/^Không tìm thấy thư mục: (.+)$/, 'Folder not found: $1'],
@@ -4304,7 +6064,7 @@ function renderTools() {
         const loggingIn = TL.status === 'waiting' && TL.tool === tool && TL.name === a.name;
         return `<div class="row ${a.logged_in === true ? 'active' : ''}">
           <span class="pick" style="cursor:default"><span class="dot"></span>
-            <span class="who"><span class="name">${esc(accLabel(a))}<button class="rename" data-rename="${esc(a.target)}" title="Đổi tên hiển thị" aria-label="Đổi tên ${esc(accLabel(a))}">✎</button></span><span class="mail">${esc(loggingIn ? 'Đang đăng nhập…' : accStatus(a))}</span></span></span>
+            <span class="who"><span class="name">${esc(accLabel(a))}<button class="rename" data-rename="${esc(a.target)}" title="Đổi tên hiển thị" aria-label="Đổi tên ${esc(accLabel(a))}">${ICON_EDIT}</button></span><span class="mail">${esc(loggingIn ? 'Đang đăng nhập…' : accStatus(a))}</span></span></span>
           ${a.logged_in === false && !loggingIn ? `<button class="small primary" data-tool-login="${tool}" data-name="${esc(a.name || '')}">Đăng nhập</button>` : ''}
           <select class="model" data-model-for="@${esc(a.target)}" aria-label="Model cho ${esc(accLabel(a))}">${modelOptions(S.account_models['@' + a.target] || '', a.target)}</select>
           ${a.name ? `<button class="ghost" data-tool-remove="${tool}" data-name="${esc(a.name)}">Xóa</button>` : ''}
@@ -4390,7 +6150,7 @@ function render() {
         <span class="dot"></span>
         <span class="who"><span class="name">${esc(S.account_labels['agy:' + p.name] || p.name)}</span><span class="mail">${esc(p.email || 'không đọc được email')}</span></span>
       </button>
-      <button class="rename solo" data-rename="agy:${esc(p.name)}" title="Đổi tên hiển thị" aria-label="Đổi tên ${esc(p.name)}">✎</button>
+      <button class="rename solo" data-rename="agy:${esc(p.name)}" title="Đổi tên hiển thị" aria-label="Đổi tên ${esc(p.name)}">${ICON_EDIT}</button>
       ${p.active ? '<span class="tag">Đang dùng</span>' : ''}
       <select class="model" data-model-for="${esc(p.name)}" aria-label="Model cho ${esc(p.name)}">${modelOptions(S.account_models[p.name] || '', 'agy:' + p.name)}</select>
       <button class="ghost" data-remove="${esc(p.name)}" ${busy ? 'disabled' : ''}>Xóa</button>
@@ -4442,7 +6202,13 @@ function treeRoles() {
 }
 const PERM_TEXT = { read: t('chỉ đọc và trả lời'), edit: t('được sửa file'), full: t('toàn quyền, kể cả chạy lệnh') };
 const ROLE = { parent: t('Bố'), child: t('Con'), reviewer: t('Mẹ check') };
-const T_MARK = { todo: '○', doing: '▶', done: '✓', blocked: '?', skipped: '–' };
+const T_MARK = {
+  todo: '<svg class="ant-icon" viewBox="64 64 896 896" width="12" height="12" fill="currentColor"><circle cx="512" cy="512" r="320" fill="none" stroke="currentColor" stroke-width="64"/></svg>',
+  doing: '<svg class="ant-icon ant-spin" viewBox="64 64 896 896" width="12" height="12" fill="currentColor"><path d="M512 64v128c176.7 0 320 143.3 320 320h128c0-247.4-200.6-448-448-448z"/></svg>',
+  done: '<svg class="ant-icon" viewBox="64 64 896 896" width="12" height="12" fill="currentColor"><path d="M512 64C264.6 64 64 264.6 64 512s200.6 448 448 448 448-200.6 448-448S759.4 64 512 64zm193.5 301.7l-210.6 292a31.8 31.8 0 01-51.7 0L318.5 500.5a8 8 0 012.3-11.2l39.5-28.8a8 8 0 0111.2 2.3l85.4 118.4 170.8-236.8a8 8 0 0111.2-2.3l41.5 28.8c4.3 3 5.4 9 2.1 13.4z"/></svg>',
+  blocked: '<svg class="ant-icon" viewBox="64 64 896 896" width="12" height="12" fill="currentColor"><path d="M512 64C264.6 64 64 264.6 64 512s200.6 448 448 448 448-200.6 448-448S759.4 64 512 64zm0 704c-35.3 0-64-28.7-64-64s28.7-64 64-64 64 28.7 64 64-28.7 64-64 64zm64-200h-128V280h128v288z"/></svg>',
+  skipped: '<svg class="ant-icon" viewBox="64 64 896 896" width="12" height="12" fill="currentColor"><path d="M512 64C264.6 64 64 264.6 64 512s200.6 448 448 448 448-200.6 448-448S759.4 64 512 64zm192 472c0 4.4-3.6 8-8 8H328c-4.4 0-8-3.6-8-8v-48c0-4.4 3.6-8 8-8h368c4.4 0 8 3.6 8 8v48z"/></svg>'
+};
 const T_TEXT = { todo: t('Chưa làm'), doing: t('Con đang làm'), done: t('Xong'), blocked: t('Cần xác nhận'), skipped: t('Bỏ qua') };
 
 // Vị trí kết thúc khối ```tasks: quét JSON (bỏ qua ``` nằm trong chuỗi), rồi tới dấu ``` đóng ngay sau đó.
@@ -4495,7 +6261,7 @@ function msgHTML(m, i) {
   const role = m.as ? (m.role === 'user' ? '→ ' : '') + ROLE[m.as] : '';
   const info = [role, m.task ? 'task #' + m.task : '', targetLabel(t), modelLabel(m.model, t)].filter(Boolean).join(' · ') +
     (m.role === 'assistant' && m.duration ? ` · ${m.duration.toFixed(1)}s` : '');
-  const cp = i === undefined ? '' : `<button class="copy" data-copy="${i}" title="${esc(tx('Sao chép'))}" aria-label="${esc(tx('Sao chép'))}">⧉</button>`;
+  const cp = i === undefined ? '' : `<button class="copy" data-copy="${i}" title="${esc(tx('Sao chép'))}" aria-label="${esc(tx('Sao chép'))}">${ICON_COPY}</button>`;
   if (m.role === 'report') return `<div class="msg report">${cp}${md(m.text)}<span class="meta">Tổng kết sau khi Con làm</span></div>`;
   return `<div class="msg ${esc(m.role)} ${m.as ? 'as-' + esc(m.as) : ''} ${m.verdict ? (/CHƯA/.test(m.verdict) ? 'verdict-bad' : 'verdict-ok') : ''}">${cp}${m.role === 'assistant' ? md(m.text) : esc(m.text)}
     <span class="meta">${esc(info)}</span>${m.note ? `<span class="meta">${esc(m.note)}</span>` : ''}</div>`;
@@ -4514,8 +6280,8 @@ async function copyMessage(btn) {
     const ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select();
     try { document.execCommand('copy'); } finally { ta.remove(); }
   }
-  btn.classList.add('done'); btn.textContent = '✓';
-  setTimeout(() => { btn.classList.remove('done'); btn.textContent = '⧉'; }, 1500);
+  btn.classList.add('done'); btn.innerHTML = ICON_CHECK;
+  setTimeout(() => { btn.classList.remove('done'); btn.innerHTML = ICON_COPY; }, 1500);
   toast(t('Đã sao chép.'));
 }
 
@@ -4810,7 +6576,7 @@ function renderTasks() {
 <span class="hint">${t('Trả lời hết một lần để Con làm một mạch, không phải dừng giữa chừng hỏi lại. Mẫu trả lời đã điền sẵn ở ô bên dưới: điền tiếp rồi bấm "Gửi cho Bố".')}</span>
 <ol class="qlist" data-noi18n>${qs.map(q => `<li>${esc(q)}</li>`).join('')}</ol><button class="small" id="t-fillq">${t('Điền lại mẫu trả lời')}</button> <button class="small ghost" id="t-skipq">${t('Bỏ qua câu hỏi, duyệt luôn')}</button></div>`;
   else if (needApprove && !running) h += `<div class="ask" style="border-color:var(--accent)"><b style="color:var(--accent)">${t('Kế hoạch chờ bạn duyệt')}</b>\n${t('Đọc kỹ các task bên dưới (đã mở sẵn chi tiết). Đúng ý thì bấm "Duyệt & giao cho {0}". Chưa đúng thì gõ góp ý rồi bấm "Gửi cho Bố" để Bố sửa. {0} chỉ bắt đầu sau khi bạn duyệt.', t(who))}</div>`;
-  if (T.expected) h += `<div class="expect"><b>🎯 ${t('Kết quả dự kiến')}</b>\n<span data-noi18n>${esc(T.expected)}</span></div>`;
+  if (T.expected) h += `<div class="expect"><b>${ICON_TARGET} ${t('Kết quả dự kiến')}</b>\n<span data-noi18n>${esc(T.expected)}</span></div>`;
   else if (!planOnly && ts.some(k => k.status === 'todo')) h += `<div class="expect miss">${t('Bố chưa ghi kết quả dự kiến của kế hoạch. Nên gửi cho Bố: "Bổ sung kết quả dự kiến" trước khi duyệt.')}</div>`;
   if (T.final_file) h += `<div class="ask" style="border-color:var(--live)"><b style="color:var(--live)">${t('Đã xuất kế hoạch:')}</b>\n<span data-noi18n>${esc(T.final_file)}</span>\n<button class="small" id="t-open-final">${t('Mở file')}</button></div>`;
   if (blocked) h += `<div class="ask"><b>${t('Con cần bạn xác nhận ở task #{0}:', blocked.id)}</b>\n<span data-noi18n>${esc(blocked.question)}</span>\n<span class="hint">${t('Mẫu trả lời đã được điền sẵn ở ô bên dưới: điền tiếp rồi bấm "Gửi cho Bố". Bố phân tích, cập nhật task cho rõ' + (T.auto ? ', rồi Con tự làm tiếp' : ', rồi bạn duyệt lại kế hoạch') + '.')}</span>\n<button class="small" id="t-fill">Điền lại mẫu trả lời</button></div>`;
@@ -4820,7 +6586,7 @@ function renderTasks() {
   if (!planOnly && ts.length > 1) h += `<p class="hint" style="margin:0 0 4px">${list
     ? t('Kéo ⠿ để đổi ưu tiên (trên = làm trước). Không kéo được task lên trước task nó phải chờ. Mở task để Để cuối / Tạm hoãn.')
     : t('Task bên dưới phải chờ task nối phía trên xong (nét đứt: cũng chờ). Kéo thẻ sang trái / phải để đổi ưu tiên (trái = làm trước). Bấm một thẻ để xem chi tiết, Để cuối / Tạm hoãn.')}</p>`;
-  const tagOf = k => k.status !== 'todo' ? '' : k.hold === 'last' ? '⏭ ' + t('để cuối') : k.hold === 'manual' ? '⏸ ' + t('tạm hoãn')
+  const tagOf = k => k.status !== 'todo' ? '' : k.hold === 'last' ? ICON_STEP_FORWARD + ' ' + t('để cuối') : k.hold === 'manual' ? ICON_PAUSE + ' ' + t('tạm hoãn')
     : held.has(k.id) ? t('chờ task hoãn') : '';
   const node = (k, sel) => {
     const p = null;
@@ -4829,12 +6595,12 @@ function renderTasks() {
     const sibs = sel ? [] : ts;
     return `<div class="tnode ${sel === true ? 'tsel' : sel ? 'tchain' : ''}" data-tid="${k.id}" data-par="${sel ? 'sel' : '*'}">
     <div class="task ${esc(k.status)} ${held.has(k.id) || (k.status === 'todo' && k.hold) ? 'held' : ''}">
-    ${!planOnly && sibs.length > 1 ? `<span class="grip" draggable="true" data-grip title="${t('Kéo để đổi ưu tiên')}">⠿</span>` : ''}
+    ${!planOnly && sibs.length > 1 ? `<span class="grip" draggable="true" data-grip title="${t('Kéo để đổi ưu tiên')}">${ICON_GRIP}</span>` : ''}
     <span class="st" title="${T_TEXT[k.status]}">${T_MARK[k.status]}</span>
     <details data-id="${k.id}" ${sel === true || (needApprove ? k.status === 'todo' && !closedTasks.has(String(k.id)) : open.has(String(k.id))) ? 'open' : ''}><summary><span class="tt">#${k.id} ${esc(k.title)}</span>${tag ? `<span class="hold">${tag}</span>` : ''}</summary>
       ${also.length ? `<div class="detail">${tx(p == null ? 'Làm sau task' : 'Cũng chờ task')}: ${also.map(d => '#' + d).join(', ')}</div>` : ''}
       ${k.detail ? `<div class="detail">${esc(k.detail)}</div>` : ''}
-      ${k.expected ? `<div class="detail expect-t"><b>🎯 ${t('Kết quả dự kiến')}:</b> ${esc(k.expected)}</div>` : ''}
+      ${k.expected ? `<div class="detail expect-t"><b>${ICON_TARGET} ${t('Kết quả dự kiến')}:</b> ${esc(k.expected)}</div>` : ''}
       ${k.result && k.status === 'done' ? `<div class="detail"><b>Con báo:</b> ${esc(k.result)}</div>` : ''}
       ${planOnly ? '' : holdButtons(k)}</details>
     ${here ? '' : taskButtons(k)}</div>
@@ -5036,7 +6802,7 @@ function renderAttach() {
   el.innerHTML = attach.map(a => `<span class="chip ${a.status === 'err' ? 'err' : ''}" title="${esc(a.error || a.name)}">
     ${a.url ? `<img src="${a.url}" alt="">` : ''}${a.status === 'up' ? '<span class="spin" style="margin:0"></span>' : ''}
     <span class="n">${esc(a.name)}</span><span class="z">${a.status === 'err' ? 'lỗi' : fmtSize(a.size)}</span>
-    <button data-unattach="${a.key}" aria-label="Bỏ ${esc(a.name)}">×</button></span>`).join('');
+    <button data-unattach="${a.key}" aria-label="Bỏ ${esc(a.name)}">${ICON_CLOSE}</button></span>`).join('');
 }
 async function addFiles(list) {
   for (const f of list) {
@@ -5168,7 +6934,7 @@ function renderUsage() {
         return `<div class="uqr ${lvl}" title="${t('{0} · {1}: đã dùng {2}%', esc(tx(g.name)), QWIN[b.window] || esc(b.window), b.used)}${b.reset ? t(' · đặt lại sau {0}', leftLong(b.reset)) : ''}${g.detail ? '\n' + esc(g.detail) : ''}">
           <span class="dot"></span><span class="t">${QWIN[b.window] || esc(b.window)}</span>
           <div class="ubar ${lvl}"><i style="width:${Math.min(100, b.used)}%"></i></div>
-          <span class="p">${Math.round(b.used)}%</span><span class="r">${b.reset ? '↻ ' + leftShort(b.reset) : ''}</span></div>`;
+          <span class="p">${Math.round(b.used)}%</span><span class="r">${b.reset ? ICON_RELOAD + ' ' + leftShort(b.reset) : ''}</span></div>`;
       }).join('')).join('') + `<div class="unote foot">${t('% đã dùng · cập nhật {0}', agoTxt(Q.at))}${x.tool === 'agy' ? t(' · agy chỉ đọc được tài khoản đang dùng') : x.tool === 'codex' ? t(' · theo lượt chạy Codex gần nhất') : ''}</div>`;
     else qh = `<div class="unote">${x.tool === 'agy' ? 'Chưa có hạn mức: agy chỉ đọc được tài khoản đang dùng, sẽ cập nhật khi tài khoản này được dùng.'
       : x.tool === 'codex' ? 'Chưa có hạn mức: sẽ hiện sau lượt chạy Codex đầu tiên.' : 'Đang tải hạn mức…'}</div>`;
@@ -5182,12 +6948,12 @@ function renderUsage() {
       .map(([m, v]) => `${esc(shortModel(m, x.target))} ${fmtTok(v.tokens)}`).join(' · ') : '';
     return `<article class="ucard">
       <div class="uch"><span class="ubadge ${x.tool}" aria-hidden="true">${BADGE[x.tool]}</span>
-        <span class="who" title="${esc([x.mail, a && a.last ? t('dùng {0}', agoTxt(a.last)) : ''].filter(Boolean).join(' · '))}"><span class="name">${esc(x.name)}<button class="rename" data-rename="${esc(x.target)}" title="Đổi tên hiển thị" aria-label="Đổi tên ${esc(x.name)}">✎</button></span></span>
+        <span class="who" title="${esc([x.mail, a && a.last ? t('dùng {0}', agoTxt(a.last)) : ''].filter(Boolean).join(' · '))}"><span class="name">${esc(x.name)}<button class="rename" data-rename="${esc(x.target)}" title="Đổi tên hiển thị" aria-label="Đổi tên ${esc(x.name)}">${ICON_EDIT}</button></span></span>
         <span class="tooltag">${TOOL_TITLE[x.tool]}</span></div>
       <div class="uqs">${qh}</div>
       <div class="ust">${st('5 giờ qua', a && a.h5)}${st('Hôm nay', a && a.day, L.day)}${st('7 ngày qua', a && a.week, L.week)}</div>
       <div class="ufoot"><span class="models">${models ? t('7 ngày theo model: {0}', models) : t('Chưa có lượt nào trong 7 ngày qua.')}</span>
-        <details data-lim="${esc(x.target)}" ${openLims.has(x.target) ? 'open' : ''}><summary>Giới hạn tự đặt${L.day || L.week ? ' ✓' : ''}</summary>
+        <details data-lim="${esc(x.target)}" ${openLims.has(x.target) ? 'open' : ''}><summary>Giới hạn tự đặt${L.day || L.week ? ' ' + ICON_CHECK : ''}</summary>
           <div class="ulims"><label>Ngày <input class="ulim" data-target="${esc(x.target)}" data-key="day" value="${L.day ? fmtTok(L.day) : ''}" placeholder="vd 5M"></label>
           <label>Tuần <input class="ulim" data-target="${esc(x.target)}" data-key="week" value="${L.week ? fmtTok(L.week) : ''}" placeholder="vd 30M"></label></div></details></div>
     </article>`;
@@ -5588,7 +7354,7 @@ function setHead(open) {
   $('.conv-head').classList.toggle('compact', !open);
   $('#head-summary').hidden = open;
   const b = $('#head-toggle');
-  b.textContent = open ? 'Thu gọn ▴' : 'Mở rộng ▾';
+  b.innerHTML = (open ? t('Thu gọn') : t('Mở rộng')) + ' ' + (open ? ICON_UP : ICON_DOWN);
   b.setAttribute('aria-expanded', String(open));
   if (!open) headSummary();
   try { localStorage.setItem('nguyen-swap-head', open ? '1' : '0'); } catch (e) {}
