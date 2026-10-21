@@ -34,6 +34,7 @@ import uuid
 import webbrowser
 import zlib
 from datetime import datetime
+from http.client import HTTPConnection
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
@@ -3437,6 +3438,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(403, {"error": "forbidden"})
         if self.path == "/":
             return self._send(200, PAGE.encode(), "text/html; charset=utf-8")
+        if self.path == "/api/version":
+            return self._send(200, {"build": BUILD})
         if self.path == "/api/state":
             try:
                 with lock:
@@ -7426,6 +7429,53 @@ def clean_uploads():
                 pass
 
 
+class Server(ThreadingHTTPServer):
+    # Trên Windows SO_REUSEADDR cho phép 2 tiến trình cùng nghe 1 cổng: bản mới mở lên vẫn "chạy được"
+    # nhưng trình duyệt lại vào bản cũ. Tắt nó để cổng bận thì báo lỗi thật.
+    allow_reuse_address = os.name != "nt"
+    daemon_threads = True
+
+
+def build_id():
+    """Mã nhận diện bản đang chạy (hash file exe/py): khác nhau nghĩa là đã có bản mới."""
+    try:
+        return hashlib.sha1(Path(sys.executable if getattr(sys, "frozen", False) else __file__).read_bytes()).hexdigest()[:16]
+    except OSError:
+        return "unknown"
+
+
+BUILD = build_id()
+
+
+def take_over_port():
+    """Cổng đang bận. Nếu là bản Nguyên Swap khác (cũ hơn) thì yêu cầu nó tắt rồi chiếm lại cổng.
+    -> server mới, hoặc None nếu đúng bản này đã chạy sẵn / không chiếm được."""
+    def call(method, path):
+        conn = HTTPConnection(HOST, PORT, timeout=5)
+        try:
+            conn.request(method, path, body=b"{}" if method == "POST" else None,
+                         headers={"Host": f"{HOST}:{PORT}", "X-Agy-Swap": "1", "Content-Type": "application/json"})
+            r = conn.getresponse()
+            return r.status, r.read()
+        finally:
+            conn.close()
+    for _ in range(5):  # bản cũ có thể đang chạy nhiều tiến trình cùng cổng: tắt lần lượt từng cái
+        try:
+            status, body = call("GET", "/api/version")
+            if status == 200 and json.loads(body).get("build") == BUILD:
+                return None  # đúng bản này đang chạy: chỉ mở lại trang
+            call("POST", "/api/shutdown")  # bản cũ (chưa có /api/version) hoặc bản khác
+        except (OSError, ValueError):
+            pass  # tiến trình vừa tắt xong, hoặc cổng bị chương trình khác chiếm
+        for _ in range(25):
+            time.sleep(0.2)
+            try:
+                return Server((HOST, PORT), Handler)
+            except OSError:
+                pass
+    return None
+
+
 def main():
     global httpd
     PROFILES_DIR.mkdir(parents=True, exist_ok=True)
@@ -7445,8 +7495,10 @@ def main():
     if IS_WIN:
         threading.Thread(target=keep_awake, daemon=True).start()
     try:
-        httpd = ThreadingHTTPServer((HOST, PORT), Handler)
+        httpd = Server((HOST, PORT), Handler)
     except OSError:
+        httpd = take_over_port()
+    if httpd is None:
         # Thường là app đã chạy sẵn (bấm mở lần nữa): chỉ mở lại trang trong trình duyệt.
         print(f"Cổng {PORT} đang bị dùng. Có thể Nguyên Swap đã chạy sẵn: mở http://127.0.0.1:{PORT}, "
               f"hoặc chạy với AGY_SWAP_PORT khác.")
