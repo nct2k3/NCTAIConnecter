@@ -4657,6 +4657,8 @@ pre {
 .chip .n { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .chip .z { color: var(--ant-text-tertiary); flex: none; font-size: 11.5px; }
 .chip.err { border-color: var(--danger); color: var(--danger); }
+.chip.queued { border-style: dashed; }
+.chip.queued .z { color: var(--accent); }
 .chip button {
   padding: 0 4px;
   border: 0;
@@ -4785,7 +4787,20 @@ pre {
 }
 body.resizing { cursor: col-resize; user-select: none; }
 
-.tgraph-wrap { overflow: auto; padding: 6px 0 10px; flex: none; max-height: 70vh; }
+.tgraph-wrap { overflow: auto; padding: 6px 0 10px; flex: none; max-height: 70vh; cursor: grab; }
+.tgraph-wrap.panning { cursor: grabbing; user-select: none; }
+/* Thanh kéo đổi chiều cao (giống thanh kéo giữa 2 cột) */
+.row-resize {
+  flex: none;
+  height: 6px;
+  margin: -3px 0;
+  cursor: row-resize;
+  position: relative;
+  z-index: 2;
+  transition: background 0.2s;
+}
+.row-resize:hover, .row-resize.active { background: var(--accent); opacity: 0.6; }
+body.resizing-row { cursor: row-resize; user-select: none; }
 .tgraph { position: relative; margin: 0 auto; }
 .tgraph svg { position: absolute; inset: 0; overflow: visible; }
 .tgraph line { stroke: var(--ant-text-tertiary); stroke-width: 1.6; opacity: 0.6; }
@@ -4847,6 +4862,22 @@ body.resizing { cursor: col-resize; user-select: none; }
   overflow-wrap: anywhere;
 }
 .expect b { color: var(--live); }
+.expect > summary { cursor: pointer; list-style: none; display: flex; gap: 8px; align-items: baseline; }
+.expect > summary::-webkit-details-marker { display: none; }
+.expect > summary b { flex: none; }
+.expect > summary::after { content: '▾'; margin-left: auto; flex: none; color: var(--ant-text-tertiary); }
+.expect:not([open]) > summary::after { content: '▸'; }
+.expect[open] > summary { margin-bottom: 4px; }
+.expect .exp-prev { display: none; }
+.expect:not([open]) .exp-prev {
+  display: block;
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--ant-text-secondary);
+}
 .expect.miss { border-color: var(--ant-warning-border); background: var(--ant-warning-bg); color: var(--ant-text); }
 .task .detail.expect-t b { color: var(--live); }
 
@@ -5734,7 +5765,9 @@ dialog.modal .acts .left { margin-right: auto; }
           <div class="tasks-resize" id="tasks-resize" title="Kéo để đổi độ rộng (bấm đúp: về mặc định)" hidden></div>
           <div class="messages" id="messages" aria-live="polite"></div>
         </div>
+        <div class="row-resize" id="composer-resize" title="Kéo để đổi chiều cao ô chat (bấm đúp: về mặc định)"></div>
         <div class="composer">
+          <div class="files" id="c-queue" hidden></div>
           <div class="files" id="c-files" hidden></div>
           <input type="file" id="c-file" multiple hidden>
           <textarea id="c-input" rows="2" placeholder="Giao việc hoặc hỏi… (Enter để gửi, Shift+Enter để xuống dòng)"></textarea>
@@ -6022,6 +6055,7 @@ async function refresh() {
     const prev = (S && S.runs) || {};
     S = await api('/api/state'); render();
     for (const [id, r] of Object.entries(prev)) if (!S.runs[id]) finished(r);
+    flushQueue();
   }
   catch (e) { $('#now-sub').textContent = t('Không kết nối được server: {0}', e.message); }
   clearTimeout(timer);
@@ -6432,9 +6466,10 @@ function graphHTML(ts, tr, card, hl) {
       hl && hl.has(d) && hl.has(k.id) ? 'hl' : ''].join(' ');
     lines += `<line class="${cls}" x1="${cx(d)}" y1="${top(d) + G.h}" x2="${cx(k.id)}" y2="${top(k.id)}"/>`;
   }
-  return `<div class="tgraph-wrap"><div class="tgraph" style="width:${W}px;height:${H}px">
+  return `<div class="tgraph-wrap" ${gH ? `style="height:${gH}px;max-height:none"` : ''} title="${t('Kéo nền để di chuyển, Ctrl + lăn chuột để thu phóng')}"><div class="tgraph" style="width:${W}px;height:${H}px;zoom:${gZoom}">
     <svg width="${W}" height="${H}" aria-hidden="true">${lines}</svg>
-    ${ts.filter(k => X.has(k.id)).map(k => card(k, cx(k.id) - G.w / 2, top(k.id))).join('')}</div></div>`;
+    ${ts.filter(k => X.has(k.id)).map(k => card(k, cx(k.id) - G.w / 2, top(k.id))).join('')}</div></div>
+    <div class="row-resize" data-gresize title="${t('Kéo để đổi chiều cao sơ đồ (bấm đúp: về mặc định)')}"></div>`;
 }
 
 // Task chưa làm bị tạm hoãn, hoặc chờ (gián tiếp) một task bị tạm hoãn
@@ -6519,6 +6554,83 @@ document.addEventListener('click', e => {
   renderTasks();
 });
 
+// Nhấn giữ nền sơ đồ cây rồi kéo để di chuyển khung nhìn (ngoài thanh cuộn ngang / dọc).
+// Kéo thẻ task vẫn là đổi ưu tiên, bấm thẻ vẫn là xem chi tiết.
+document.addEventListener('mousedown', e => {
+  const w = e.button === 0 && e.target.closest && e.target.closest('#tasks .tgraph-wrap');
+  if (!w || e.target.closest('.gcard')) return;
+  if (e.target === w && (e.offsetX >= w.clientWidth || e.offsetY >= w.clientHeight)) return;  // bấm vào thanh cuộn
+  e.preventDefault();
+  const x0 = e.clientX, y0 = e.clientY, l0 = w.scrollLeft, t0 = w.scrollTop;
+  w.classList.add('panning');
+  const mv = ev => { w.scrollLeft = l0 - (ev.clientX - x0); w.scrollTop = t0 - (ev.clientY - y0); };
+  const up = () => {
+    document.removeEventListener('mousemove', mv); document.removeEventListener('mouseup', up);
+    w.classList.remove('panning');
+  };
+  document.addEventListener('mousemove', mv); document.addEventListener('mouseup', up);
+});
+
+// Thu phóng sơ đồ cây: Ctrl + lăn chuột trên sơ đồ (nhớ lại cho lần sau)
+let gZoom = 1, gH = 0;  // gH: chiều cao khung sơ đồ do người dùng kéo (0 = mặc định)
+try {
+  gZoom = Math.min(2, Math.max(0.3, +localStorage.getItem('nguyen-swap-gzoom') || 1));
+  gH = +localStorage.getItem('nguyen-swap-gh') || 0;
+} catch (e) {}
+document.addEventListener('wheel', e => {
+  if (!e.ctrlKey || !(e.target.closest && e.target.closest('#tasks .tgraph-wrap'))) return;
+  e.preventDefault();
+  gZoom = Math.round(Math.min(2, Math.max(0.3, gZoom + (e.deltaY < 0 ? 0.1 : -0.1))) * 100) / 100;
+  try { localStorage.setItem('nguyen-swap-gzoom', String(gZoom)); } catch (x) {}
+  renderTasks();
+}, { passive: false });
+
+// Kéo thanh ngang để đổi chiều cao: ô chat (kéo lên = cao hơn) và khung sơ đồ cây (kéo xuống = cao hơn).
+// Nhớ lại cho lần sau, bấm đúp: về mặc định.
+function setInputH(px) {
+  const box = $('#c-input'), max = Math.round(window.innerHeight * 0.6);
+  box.style.maxHeight = max + 'px';
+  box.style.height = Math.min(max, Math.max(64, px)) + 'px';
+}
+try { const h = parseFloat(localStorage.getItem('nguyen-swap-input-h')); if (h) setInputH(h); } catch (e) {}
+document.addEventListener('mousedown', e => {
+  const bar = e.button === 0 && e.target.closest && e.target.closest('#composer-resize, #tasks [data-gresize]');
+  if (!bar) return;
+  e.preventDefault();
+  const chat = bar.id === 'composer-resize', y0 = e.clientY;
+  const h0 = chat ? $('#c-input').offsetHeight : $('#tasks .tgraph-wrap').offsetHeight;
+  bar.classList.add('active'); document.body.classList.add('resizing-row');
+  const mv = ev => {
+    const dy = ev.clientY - y0;
+    if (chat) return setInputH(h0 - dy);
+    gH = Math.max(120, Math.round(h0 + dy));
+    const w = $('#tasks .tgraph-wrap');
+    if (w) { w.style.height = gH + 'px'; w.style.maxHeight = 'none'; }
+  };
+  const up = () => {
+    document.removeEventListener('mousemove', mv); document.removeEventListener('mouseup', up);
+    bar.classList.remove('active'); document.body.classList.remove('resizing-row');
+    try {
+      if (chat) localStorage.setItem('nguyen-swap-input-h', $('#c-input').style.height);
+      else localStorage.setItem('nguyen-swap-gh', String(gH));
+    } catch (x) {}
+    if (!chat) renderTasks();
+  };
+  document.addEventListener('mousemove', mv); document.addEventListener('mouseup', up);
+});
+document.addEventListener('dblclick', e => {
+  const bar = e.target.closest && e.target.closest('#composer-resize, #tasks [data-gresize]');
+  if (!bar) return;
+  if (bar.id === 'composer-resize') {
+    const box = $('#c-input'); box.style.height = box.style.maxHeight = '';
+    try { localStorage.removeItem('nguyen-swap-input-h'); } catch (x) {}
+  } else {
+    gH = 0;
+    try { localStorage.removeItem('nguyen-swap-gh'); } catch (x) {}
+    renderTasks();
+  }
+});
+
 // Kéo cạnh phải khung kế hoạch để đổi độ rộng (nhớ lại cho lần sau)
 document.addEventListener('mousedown', e => {
   if (e.target.id !== 'tasks-resize') return;
@@ -6541,9 +6653,15 @@ document.addEventListener('dblclick', e => {  // bấm đúp: về độ rộng 
 
 // Khi chờ duyệt, chi tiết task mở sẵn; nhớ các task người dùng đã tự đóng lại
 const closedTasks = new Set();
+let expOpen = true;  // khung "Kết quả dự kiến" mở hay thu gọn (nhớ lại cho lần sau)
+try { expOpen = localStorage.getItem('nguyen-swap-exp') !== '0'; } catch (e) {}
 document.addEventListener('toggle', e => {
   const d = e.target;
   if (d.closest && d.closest('#tasks') && d.dataset && d.dataset.id) d.open ? closedTasks.delete(d.dataset.id) : closedTasks.add(d.dataset.id);
+  if (d.matches && d.matches('#tasks details[data-exp]')) {
+    expOpen = d.open;
+    try { localStorage.setItem('nguyen-swap-exp', expOpen ? '1' : '0'); } catch (x) {}
+  }
 }, true);
 
 function renderTasks() {
@@ -6579,7 +6697,7 @@ function renderTasks() {
 <span class="hint">${t('Trả lời hết một lần để Con làm một mạch, không phải dừng giữa chừng hỏi lại. Mẫu trả lời đã điền sẵn ở ô bên dưới: điền tiếp rồi bấm "Gửi cho Bố".')}</span>
 <ol class="qlist" data-noi18n>${qs.map(q => `<li>${esc(q)}</li>`).join('')}</ol><button class="small" id="t-fillq">${t('Điền lại mẫu trả lời')}</button> <button class="small ghost" id="t-skipq">${t('Bỏ qua câu hỏi, duyệt luôn')}</button></div>`;
   else if (needApprove && !running) h += `<div class="ask" style="border-color:var(--accent)"><b style="color:var(--accent)">${t('Kế hoạch chờ bạn duyệt')}</b>\n${t('Đọc kỹ các task bên dưới (đã mở sẵn chi tiết). Đúng ý thì bấm "Duyệt & giao cho {0}". Chưa đúng thì gõ góp ý rồi bấm "Gửi cho Bố" để Bố sửa. {0} chỉ bắt đầu sau khi bạn duyệt.', t(who))}</div>`;
-  if (T.expected) h += `<div class="expect"><b>${ICON_TARGET} ${t('Kết quả dự kiến')}</b>\n<span data-noi18n>${esc(T.expected)}</span></div>`;
+  if (T.expected) h += `<details class="expect" data-exp ${expOpen ? 'open' : ''}><summary><b>${ICON_TARGET} ${t('Kết quả dự kiến')}</b><span class="exp-prev" data-noi18n>${esc(T.expected)}</span></summary><span data-noi18n>${esc(T.expected)}</span></details>`;
   else if (!planOnly && ts.some(k => k.status === 'todo')) h += `<div class="expect miss">${t('Bố chưa ghi kết quả dự kiến của kế hoạch. Nên gửi cho Bố: "Bổ sung kết quả dự kiến" trước khi duyệt.')}</div>`;
   if (T.final_file) h += `<div class="ask" style="border-color:var(--live)"><b style="color:var(--live)">${t('Đã xuất kế hoạch:')}</b>\n<span data-noi18n>${esc(T.final_file)}</span>\n<button class="small" id="t-open-final">${t('Mở file')}</button></div>`;
   if (blocked) h += `<div class="ask"><b>${t('Con cần bạn xác nhận ở task #{0}:', blocked.id)}</b>\n<span data-noi18n>${esc(blocked.question)}</span>\n<span class="hint">${t('Mẫu trả lời đã được điền sẵn ở ô bên dưới: điền tiếp rồi bấm "Gửi cho Bố". Bố phân tích, cập nhật task cho rõ' + (T.auto ? ', rồi Con tự làm tiếp' : ', rồi bạn duyệt lại kế hoạch') + '.')}</span>\n<button class="small" id="t-fill">Điền lại mẫu trả lời</button></div>`;
@@ -6630,7 +6748,11 @@ function renderTasks() {
         + part(t('Nối đuôi phía sau'), chain.down);
     }
   }
+  // Vẽ lại sơ đồ thì giữ nguyên chỗ đang xem (không nhảy về góc trên trái)
+  const gw = el.querySelector('.tgraph-wrap'), gs = gw && [gw.scrollLeft, gw.scrollTop];
   setHTML(el, h);
+  const gw2 = el.querySelector('.tgraph-wrap');
+  if (gs && gw2 && gw2 !== gw) [gw2.scrollLeft, gw2.scrollTop] = gs;
   if (blocked) autoFill(blocked);
   else if (qs.length && !running) fillQuestions(qs);
 }
@@ -6774,9 +6896,12 @@ function renderChat(otherBusy) {
     </div>`).join('') : '<div class="empty">Chưa có cuộc trò chuyện nào.</div>');
 
   const send = $('#c-send'), answering = running && !!runOf(chatId).answerable;  // trả lời Con, các Con khác vẫn chạy
-  send.textContent = running && !answering ? 'Dừng' : tree ? 'Gửi cho Bố' : 'Gửi';
-  send.classList.toggle('primary', !running || answering);
-  $('#c-stop').hidden = !answering;
+  // Đang làm vẫn gửi được: tin được xếp hàng, xong lượt hiện tại thì tự gửi. Dừng là nút riêng.
+  send.textContent = running && !answering ? 'Xếp hàng gửi' : tree ? 'Gửi cho Bố' : 'Gửi';
+  send.title = running && !answering ? t('Trợ lý đang làm: tin sẽ tự gửi khi lượt hiện tại xong') : '';
+  send.classList.add('primary');
+  $('#c-stop').hidden = !running;
+  renderQueue();
   const agyBusy = t => toolOf(t) === 'agy' && otherBusy;
   send.disabled = !(running && !answering) && (!cTarget || agyBusy(cTarget) || (tree && (!pTarget || agyBusy(pTarget))));
   $('#c-history').disabled = !chatId;
@@ -6831,19 +6956,58 @@ function attachIds() {
   return attach.filter(a => a.status === 'ok').map(a => a.id);
 }
 
-async function sendChat() {
+// q: tin đã xếp hàng ({text, files}) thay cho nội dung ô nhập. Trả về true nếu gửi được.
+async function sendChat(q) {
+  const box = $('#c-input'), files = q ? q.files : attachIds();
+  if (!files) return false;
+  const text = q ? q.text : box.value.trim() || (files.length ? 'Xem file đính kèm.' : '');
+  if (!text) { box.focus(); return false; }
+  if (!cTarget) { toast('Chưa có ai để chat: thêm tài khoản agy, hoặc cài Claude Code / Codex.'); return false; }
+  const folder = $('#c-folder').value.trim();
+  let ok = false;
+  try {
+    const d = await api('/api/chat/send', { id: chatId, text, target: cTarget, model: cModel, folder, perm: cPerm, files, effort: cEffort });
+    if (!q) { box.value = ''; clearAttach(); }
+    chatId = d.id; chatStamp = null; ok = true;
+  } catch (e) { toast(e.message); }
+  await refresh();
+  renderMessages(true);
+  return ok;
+}
+
+// Gửi tin trong lúc trợ lý đang làm: xếp hàng, lượt hiện tại xong (hoặc bấm Dừng) thì tự gửi.
+// Nhiều tin chờ thì gộp thành một tin. Hàng chờ nằm trong trang này: đóng tab thì mất.
+const queued = {};  // chatId -> [{text, files}]
+function queueMsg() {
   const box = $('#c-input'), files = attachIds();
   if (!files) return;
   const text = box.value.trim() || (files.length ? 'Xem file đính kèm.' : '');
   if (!text) { box.focus(); return; }
-  if (!cTarget) { toast('Chưa có ai để chat: thêm tài khoản agy, hoặc cài Claude Code / Codex.'); return; }
-  const folder = $('#c-folder').value.trim();
+  (queued[chatId] = queued[chatId] || []).push({ text, files });
+  box.value = ''; clearAttach(); renderQueue();
+  toast(t('Đã xếp hàng: tự gửi khi lượt hiện tại xong.'));
+}
+function renderQueue() {
+  const el = $('#c-queue'), q = queued[chatId] || [];
+  el.hidden = !q.length;
+  setHTML(el, q.map((m, i) => `<span class="chip queued" title="${esc(m.text)}"><span class="z">${t('Chờ gửi')}</span>
+    <span class="n" data-noi18n>${esc(m.text)}</span>${m.files.length ? `<span class="z">+${m.files.length} file</span>` : ''}
+    <button data-unqueue="${i}" aria-label="${t('Bỏ tin chờ gửi')}">${ICON_CLOSE}</button></span>`).join(''));
+}
+let flushing = false;
+async function flushQueue() {
+  const id = chatId, q = queued[id];
+  if (flushing || !q || !q.length || runOf(id).status === 'running') return;
+  flushing = true;
+  const m = { text: q.map(x => x.text).join('\n\n'), files: q.flatMap(x => x.files) };
+  delete queued[id]; renderQueue();
   try {
-    const d = await api('/api/chat/send', { id: chatId, text, target: cTarget, model: cModel, folder, perm: cPerm, files, effort: cEffort });
-    box.value = ''; clearAttach(); chatId = d.id; chatStamp = null;
-  } catch (e) { toast(e.message); }
-  await refresh();
-  renderMessages(true);
+    const ok = await (cMode === 'tree' ? sendTree('/api/tree/plan', null, m) : sendChat(m));
+    if (!ok && chatId === id) {  // gửi không được: trả tin về ô nhập để không mất
+      const box = $('#c-input');
+      box.value = m.text + (box.value.trim() ? '\n\n' + box.value : '');
+    }
+  } finally { flushing = false; }
 }
 
 // Báo cho người dùng khi Bố / Con làm xong (kể cả khi đang xem cuộc trò chuyện khác hoặc tab khác).
@@ -6860,25 +7024,27 @@ function finished(was) {
 document.addEventListener('visibilitychange', () => { if (!document.hidden) { document.title = 'Nguyên Swap'; refresh(); } });
 
 // Cây task: gửi tin cho Bố (path = /api/tree/plan) hoặc cho Con làm các task còn lại (/api/tree/run).
-async function sendTree(path, extra) {
-  const box = $('#c-input'), toParent = path === '/api/tree/plan', files = toParent ? attachIds() : [];
-  if (!files) return;
-  const text = box.value.trim() || (files.length ? 'Xem file đính kèm.' : '');
-  if (toParent && !text) { box.focus(); return; }
-  if (!pTarget || !cTarget) { toast('Chọn trợ lý cho cả Bố và Con.'); return; }
+async function sendTree(path, extra, q) {
+  const box = $('#c-input'), toParent = path === '/api/tree/plan', files = q ? q.files : toParent ? attachIds() : [];
+  if (!files) return false;
+  const text = q ? q.text : box.value.trim() || (files.length ? 'Xem file đính kèm.' : '');
+  if (toParent && !text) { box.focus(); return false; }
+  if (!pTarget || !cTarget) { toast('Chọn trợ lý cho cả Bố và Con.'); return false; }
   const R = treeRoles();
   const body = { id: chatId, folder: $('#c-folder').value.trim(), auto: tFlow !== 'confirm', flow: tFlow,
     parent: R.parent, child: R.child, reviewer: rTarget ? { target: rTarget, model: rModel, effort: rEffort } : null,
     workers: isPlanFlow(tFlow) ? 1 : tWorkers };
   if (toParent) Object.assign(body, { text, files });
   if (extra) Object.assign(body, extra);
+  let ok = false;
   try {
     const d = await api(path, body);
-    if (toParent) { box.value = ''; clearAttach(); }
-    chatId = d.id; chatStamp = null;
+    if (toParent && !q) { box.value = ''; clearAttach(); }
+    chatId = d.id; chatStamp = null; ok = true;
   } catch (e) { toast(e.message); }
   await refresh();
   renderMessages(true);
+  return ok;
 }
 
 // ---- mức sử dụng
@@ -7173,8 +7339,9 @@ document.addEventListener('click', e => {
     act('/api/chat/remove', { id }, () => 'Đã xóa cuộc trò chuyện').then(() => { if (chatId === id) { chatId = null; chatData = null; renderMessages(); } });
   }
   else if (b.id === 'c-stop') act('/api/chat/cancel', { id: chatId }, () => 'Đã dừng');
-  else if (b.id === 'c-send') runOf(chatId).status === 'running' && !runOf(chatId).answerable ? act('/api/chat/cancel', { id: chatId }, () => 'Đã dừng')
+  else if (b.id === 'c-send') runOf(chatId).status === 'running' && !runOf(chatId).answerable ? queueMsg()
     : cMode === 'tree' ? sendTree('/api/tree/plan') : sendChat();
+  else if (b.dataset.unqueue) { const q = queued[chatId] || []; q.splice(+b.dataset.unqueue, 1); renderQueue(); }
   else if (b.dataset.mode) { cMode = b.dataset.mode; renderChat(); }
   else if (b.id === 't-run') sendTree('/api/tree/run');
   else if (b.dataset.stab) setSTab(b.dataset.stab);
@@ -7325,7 +7492,7 @@ document.addEventListener('keydown', e => {
   if (e.key !== 'Enter' || e.isComposing) return;
   if (e.target.id === 'new-name') $('#login-start').click();
   if (e.target.id === 'save-name') $('#save-btn').click();
-  if (e.target.id === 'c-input' && !e.shiftKey) { e.preventDefault(); const R = runOf(chatId); if (R.status !== 'running' || R.answerable) $('#c-send').click(); }
+  if (e.target.id === 'c-input' && !e.shiftKey) { e.preventDefault(); $('#c-send').click(); }
 });
 
 document.addEventListener('input', e => { if (e.target.id === 'c-folder') updateHint(); });
